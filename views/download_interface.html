@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barcode Label Download Tool</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet"> 
+</head>
+<body class="bg-light">
+
+  <div class="container mt-5 p-4 bg-white rounded shadow-sm" style="max-width: 500px;">
+    <h2 class="mb-4 text-primary">Barcode Label Download Tool</h2>
+    <p class="text-secondary">Select a date range to download the filtered table data as a CSV file.</p>
+    
+    <form id="downloadForm">
+      <div class="mb-3">
+        <label for="startDate" class="form-label fw-bold">Start Date:</label>
+        <input type="date" class="form-control" id="startDate" value="2025-09-20" required>
+      </div>
+      <div class="mb-4">
+        <label for="endDate" class="form-label fw-bold">End Date:</label>
+        <input type="date" class="form-control" id="endDate" value="2025-09-29" required>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-2" viewBox="0 0 16 16">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793l-2.146-2.147a.5.5 0 0 0-.708.708l3 3z"/>
+        </svg>
+        Download Data
+      </button>
+      
+      <div id="message-container" class="mt-3">
+        </div>
+    </form>
+  </div>
+
+  <script>
+        // Helper function to format date as YYYY-MM-DD
+        function getTodayDateString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            // Month is 0-indexed, so add 1 and pad with '0'
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            // Day and pad with '0'
+            const day = String(today.getDate()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}`;
+        }
+
+        // Set the End Date input value to today's date upon loading
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const todayDate = getTodayDateString();
+            document.getElementById('endDate').value = todayDate;
+            
+            // Optional: Also update the start date if it's currently a future date,
+            // or set a default start range like 7 days ago.
+            // Example: To set start date to 7 days ago:
+            
+            const dateDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
+            const year_ago = dateDaysAgo.getFullYear();
+            const month_ago = String(dateDaysAgo.getMonth() + 1).padStart(2, '0');
+            const day_ago = String(dateDaysAgo.getDate()).padStart(2, '0');
+            document.getElementById('startDate').value = `${year_ago}-${month_ago}-${day_ago}`;
+            
+        });
+
+    function displayMessage(text, type) {
+      const container = document.getElementById('message-container');
+      // Clear existing messages
+      container.innerHTML = ''; 
+      
+      // Create a new Bootstrap alert element
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+      alertDiv.setAttribute('role', 'alert');
+      
+      // Add the text and a close button
+      alertDiv.innerHTML = `${text}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+      
+      container.appendChild(alertDiv);
+    }
+
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      document.getElementById('message-container').innerHTML = ''; // Clear messages
+
+      // Basic validation
+      if (new Date(startDate) > new Date(endDate)) {
+        displayMessage("Error: Start date cannot be after the end date.", "danger");
+        return;
+      }
+
+      const endpoint = '/api/download-table';
+      const downloadUrl = `${endpoint}?start=${startDate}&end=${endDate}`;
+
+      try {
+        const response = await fetch(downloadUrl);
+
+        if (response.status === 404) {
+          // Server error (No data found)
+          const errorText = await response.text();
+          displayMessage(`❌ ${errorText}`, "warning"); // Use warning for "no data"
+        } 
+        else if (response.ok) {
+          // Success (File received)
+          const blob = await response.blob();
+          const contentDisposition = response.headers.get('Content-Disposition');
+          
+          // Extract filename from Content-Disposition header
+          const filenameMatch = contentDisposition.match(/filename="?(.+?)"?$/);
+          const filename = filenameMatch ? filenameMatch[1] : 'report.csv';
+          
+          // Trigger the download using Blob and temporary link
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = filename; 
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          a.remove();
+          
+          displayMessage('✅ File download started! Check your downloads folder.', "success");
+        } 
+        else {
+          // Handle other server errors (e.g., 500)
+          const errorText = await response.text();
+          displayMessage(`🚨 Download failed: ${errorText}`, "danger");
+        }
+
+      } catch (error) {
+        logger.error('Download fetch error:', error);
+        displayMessage('Network or connection error. Check your server.', "danger");
+      }
+    });
+    // Include Bootstrap's required JavaScript bundle for the 'alert' component to work properly
+  </script>
+
+</body>
+</html>

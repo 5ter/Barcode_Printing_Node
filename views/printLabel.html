@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actmax Label Printing</title>
+    <!-- Bootstrap 5 CSS -->
+   <link href="css/bootstrap.min.css" rel="stylesheet"> 
+    
+    <style>
+        /* Custom styles to enhance the readonly fields visual distinction */
+        .form-control[readonly] {
+            background-color: #e9ecef; /* Lighter gray background for readonly */
+            cursor: default;
+        }
+        /* Body styling for centering */
+        .app-container {
+            min-height: 100vh;
+            background-color: #f8f9fa; /* Bootstrap's light gray */
+            padding-top: 3rem;
+        }
+        /* Style for the non-form response area */
+        #response {
+            border-top: 1px solid #dee2e6;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+
+        #labelLogo { 
+            /* Set a fixed size for the logo next to the title */
+            width: 35px; /* Updated size */
+            height: 35px; /* Updated size */
+            border-radius: 0px; 
+            object-fit: contain;
+        }
+        .btn-extra-large {
+            padding: 1.25rem 2.5rem; /* Increased vertical and horizontal padding */
+            font-size: 1.5rem;       /* Larger font size */
+            line-height: 6;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="app-container">
+
+
+    <div class="container">
+        <!-- Card container for the form, centered and max-width set -->
+                    
+        <div class="card shadow-lg mx-auto" style="max-width: 500px;">
+
+            <div class="card-body p-4 p-md-5">
+
+            <div class="d-flex align-items-center justify-content-center mb-4">
+    <h1 class="h1 fw-bold text-dark text-start mb-0 me-1">ACTMAX</h1>
+    <img id="labelLogo" src="image/actmax_logo.webp" alt="Label Logo" 
+         class="order-1" style="margin-top: -10px; width: 25px; height: auto;"> 
+</div>
+                                
+                <form id="dataForm" class="needs-validation" novalidate>
+                    
+                    <!-- EDITABLE INPUT FIELD (MO) -->
+                    <div class="mb-3">
+                        <label for="MO" class="form-label fw-medium">MO :</label>
+                        <input type="text" id="MO" name="MO" required 
+                               class="form-control" placeholder="Enter Manufacturing Order">
+                        <div class="invalid-feedback">
+                            MO field is required.
+                        </div>
+                    </div>
+
+                    <!-- EDITABLE INPUT FIELD (ActID) -->
+                    <div class="mb-3">
+                        <label for="ActID" class="form-label fw-medium">Actmax Part No. :</label>
+                        <input type="text" id="ActID" name="ActID" required 
+                               class="form-control" placeholder="Enter Actmax Part No.">
+                        <div class="invalid-feedback">
+                            Actmax ID field is required.
+                        </div>
+                    </div>
+
+                    <!-- DISPLAY FIELD 1: READ-ONLY INPUT (CustID) -->
+                    <div class="mb-3">
+                        <label for="CustID" class="form-label fw-medium">Customer Part No. :</label>
+                        <input type="text" id="CustID" name="CustID" readonly 
+                               value="Awaiting print job..." 
+                               class="form-control">
+                    </div>
+                    
+                    <button type="submit" 
+                            class="btn btn-primary btn-extra-large w-100 shadow-sm">
+                        Print Label
+                    </button>
+                </form>
+
+                <!-- General Response Area -->
+                <div id="response" class="text-secondary mt-5">
+                    <p id="message" class="text-sm">Form ready. Enter MO & Actmax ID to begin.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JavaScript Bundle (Popper included) -->
+    <script src="ajax.js"></script>

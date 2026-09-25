@@ -1,0 +1,20 @@
+Change Printer Setting in config!
+Unhide comment of "await printLabel(label_Con, printerConfig.IP, printerConfig.PORT);" from apps.js (To enable printer)
+Production mode that time logger prevent console log to save up performance
+
+
+Common Command
+
+***PM2***
+pm2 start ecosystem.config.js  (start all apps)
+pm2 stop all (stop all apps)
+pm2 kill (stop pm2 god daemon itself)
+pm2 restart [app_name] (Restart apps)
+pm2 list (check running)
+pm2 monit (real time monitoring)
+
+pm2 save (You should run this command every time you add, remove, or change an application running under PM2.)
+
+
+   instances: "max",
+      exec_mode: "cluster",

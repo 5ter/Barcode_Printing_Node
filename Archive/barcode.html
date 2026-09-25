@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AJAX POST Example</title>
+</head>
+<body>
+    <h1>Submit Your Data</h1>
+    <form id="dataForm">
+        <label for="MO">MO:</label>
+        <input type="text" id="MO" name="MO" required>
+        <br><br>
+        <label for="CustID">Customer ID:</label>
+        <textarea id="CustID" name="CustID" required></textarea>
+        <br><br>
+        <label for="ActID">Actmax ID: (Sample - FG123863)</label>
+        <textarea id="ActID" name="ActID" required></textarea>
+        <br><br>
+        <button type="submit">Print Label</button>
+    </form>
+    <div id="response"></div>
+
+    <script src="ajax.js"></script>
+</body>
+</html>
