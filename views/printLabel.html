@@ -57,41 +57,86 @@
          class="order-1" style="margin-top: -10px; width: 25px; height: auto;"> 
 </div>
                                 
-                <form id="dataForm" class="needs-validation" novalidate>
-                    
-                    <!-- EDITABLE INPUT FIELD (MO) -->
-                    <div class="mb-3">
-                        <label for="MO" class="form-label fw-medium">MO :</label>
-                        <input type="text" id="MO" name="MO" required 
-                               class="form-control" placeholder="Enter Manufacturing Order">
-                        <div class="invalid-feedback">
-                            MO field is required.
-                        </div>
-                    </div>
+                <div class="nav nav-tabs" role="tablist" aria-label="Label type">
+                    <button class="nav-link active" id="standardTab" type="button"
+                            role="tab" aria-selected="true" aria-controls="standardPanel"
+                            data-label-tab="standard">Standard Label</button>
+                    <button class="nav-link" id="arnTab" type="button"
+                            role="tab" aria-selected="false" aria-controls="arnPanel"
+                            data-label-tab="arn">ARN Label</button>
+                </div>
 
-                    <!-- EDITABLE INPUT FIELD (ActID) -->
-                    <div class="mb-3">
-                        <label for="ActID" class="form-label fw-medium">Actmax Part No. :</label>
-                        <input type="text" id="ActID" name="ActID" required 
-                               class="form-control" placeholder="Enter Actmax Part No.">
-                        <div class="invalid-feedback">
-                            Actmax ID field is required.
-                        </div>
-                    </div>
+                <div class="pt-4">
+                    <section id="standardPanel" role="tabpanel" aria-labelledby="standardTab">
+                        <form id="dataForm" class="needs-validation" novalidate>
+                            <div class="mb-3">
+                                <label for="MO" class="form-label fw-medium">MO :</label>
+                                <input type="text" id="MO" name="MO" required
+                                       class="form-control" placeholder="Enter Manufacturing Order">
+                                <div class="invalid-feedback">MO field is required.</div>
+                            </div>
 
-                    <!-- DISPLAY FIELD 1: READ-ONLY INPUT (CustID) -->
-                    <div class="mb-3">
-                        <label for="CustID" class="form-label fw-medium">Customer Part No. :</label>
-                        <input type="text" id="CustID" name="CustID" readonly 
-                               value="Awaiting print job..." 
-                               class="form-control">
-                    </div>
-                    
-                    <button type="submit" 
-                            class="btn btn-primary btn-extra-large w-100 shadow-sm">
-                        Print Label
-                    </button>
-                </form>
+                            <div class="mb-3">
+                                <label for="ActID" class="form-label fw-medium">Actmax Part No. :</label>
+                                <input type="text" id="ActID" name="ActID" required
+                                       class="form-control" placeholder="Enter Actmax Part No.">
+                                <div class="invalid-feedback">Actmax ID field is required.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="CustID" class="form-label fw-medium">Customer Part No. :</label>
+                                <input type="text" id="CustID" name="CustID" readonly
+                                       value="Awaiting print job..." class="form-control">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-extra-large w-100 shadow-sm">
+                                Print Label
+                            </button>
+                        </form>
+                    </section>
+
+                    <section id="arnPanel" role="tabpanel" aria-labelledby="arnTab" hidden>
+                        <form id="arnForm" class="needs-validation" novalidate>
+                            <div class="mb-3">
+                                <label for="ARN_MO" class="form-label fw-medium">MO :</label>
+                                <input type="text" id="ARN_MO" name="MO"
+                                       class="form-control" placeholder="Enter Manufacturing Order">
+                                <div class="form-text">If blank, the configured temporary MO is used for the ARN running number.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="ARN_ActID" class="form-label fw-medium">Actmax Part No. :</label>
+                                <input type="text" id="ARN_ActID" name="ActID" required
+                                       class="form-control" placeholder="Enter Actmax Part No.">
+                                <div class="invalid-feedback">Actmax ID field is required.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="ARN_Quantity" class="form-label fw-medium">Quantity :</label>
+                                <input type="number" id="ARN_Quantity" name="quantity" required min="1" step="1"
+                                       class="form-control" placeholder="Enter label quantity">
+                                <div class="invalid-feedback">Enter a positive whole-number quantity.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="ARN_PO" class="form-label fw-medium">PO Number :</label>
+                                <input type="text" id="ARN_PO" name="PO" required
+                                       class="form-control" placeholder="Enter PO number">
+                                <div class="invalid-feedback">PO number is required.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="ARN_CustID" class="form-label fw-medium">Customer Part No. :</label>
+                                <input type="text" id="ARN_CustID" name="CustID" readonly
+                                       value="Awaiting print job..." class="form-control">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-extra-large w-100 shadow-sm">
+                                Print ARN Label
+                            </button>
+                        </form>
+                    </section>
+                </div>
 
                 <!-- General Response Area -->
                 <div id="response" class="text-secondary mt-5">
@@ -102,4 +147,4 @@
     </div>
 
     <!-- Bootstrap 5 JavaScript Bundle (Popper included) -->
-    <script src="ajax.js"></script>
+    <script src="ajax.js?v=arn-mode-explicit-2"></script>

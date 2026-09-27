@@ -215,9 +215,76 @@ function printLabel_two(label_content_1, label_content_2, PRINTER_IP, PRINTER_PO
     });
 };
 
+// Sends a single ARN SBPL payload. Existing label routines are untouched.
+function printLabel_arn(sbplCommand, PRINTER_IP, PRINTER_PORT) {
+    // SBPL contains ESC control bytes that are invisible in most terminals.
+    // Enable this only while checking a local ARN layout; the default keeps
+    // label contents out of application logs.
+    if (process.env.LOG_ARN_SBPL === 'true' && typeof sbplCommand === 'string') {
+        console.log('ARN SBPL payload (ESC shown as <ESC>):\n' +
+            sbplCommand.replace(/\x1B/g, '<ESC>'));
+    }
+
+    // This switch applies only to the new ARN path. It is intended for
+    // localhost testing and is off unless explicitly set to the string true.
+    if (process.env.DRY_RUN_ARN_PRINTING === 'true') {
+        logger.info('DRY RUN: ARN label was generated but not sent to a printer.');
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        if (typeof sbplCommand !== 'string' || !sbplCommand.length) {
+            reject(new Error('ARN print payload is empty.'));
+            return;
+        }
+
+        const client = new net.Socket();
+        let settled = false;
+        const fail = (error) => {
+            if (!settled) {
+                settled = true;
+                reject(error);
+            }
+        };
+        const succeed = () => {
+            if (!settled) {
+                settled = true;
+                resolve();
+            }
+        };
+
+        client.setTimeout(PRINTER_TIMEOUT_MS);
+        client.connect(PRINTER_PORT, PRINTER_IP, () => {
+            logger.log('Connected to ARN printer at ' + PRINTER_IP + ':' + PRINTER_PORT);
+            client.write(Buffer.from(sbplCommand, 'ascii'), (err) => {
+                client.end();
+                if (err) {
+                    logger.error('Error sending ARN print data:', err.message);
+                    fail(new Error('Failed to send ARN print data to printer.'));
+                    return;
+                }
+                logger.log('ARN SBPL command text sent successfully.');
+                succeed();
+            });
+        });
+        client.on('timeout', () => {
+            client.destroy();
+            const errorMsg = 'ARN print connection timed out (' + PRINTER_TIMEOUT_MS + 'ms) to ' + PRINTER_IP;
+            logger.error(errorMsg);
+            fail(new Error(errorMsg));
+        });
+        client.on('error', (err) => {
+            logger.error('ARN printer connection error: ' + err.message + '. Ensure printer is online and on IP ' + PRINTER_IP);
+            fail(new Error('ARN printer connection failed: ' + err.message));
+        });
+        client.on('close', () => logger.log('ARN printer connection closed.'));
+    });
+}
+
 //printLabel_one('1010598','10.0.12.57',9100);
 // Export the function for use in other files
 module.exports = {
     printLabel_one,
-    printLabel_two
+    printLabel_two,
+    printLabel_arn
 };

@@ -1,1 +1,23 @@
 node_modules/
+
+# Local environment files (commit only a sanitized .env.example, if needed).
+.env
+.env.*
+!.env.example
+
+# Local SQLite development/testing adapter and database files.
+/db/sqliteTest.js
+/bcps_label_test.sqlite
+/bcps_label_test.sqlite-*
+
+# Local MySQL Workbench schema snapshots are references, not deployable migrations.
+/bcps_label_product_code_ref.sql
+/bcps_label_products_unique.sql
+
+# Logs and generated test reports.
+*.log
+npm-debug.log*
+/coverage/
+/.nyc_output/
+/test-results/
+/playwright-report/
