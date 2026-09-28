@@ -140,10 +140,10 @@ app.post('/submit-data', async (req, res) => {
 
         if (isArnLabel) {
             // Sequence is scoped to MO. Every distinct Excel row (therefore
-            // every newly assigned MO) begins at 0; later labels for the same
+            // every newly assigned MO) begins at 1; later labels for the same
             // MO increment after a successful prior print.
             await connection.execute(
-                'INSERT INTO arn_label_sequence (MO, last_item_no) VALUES (?, 0) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
+                'INSERT INTO arn_label_sequence (MO, last_item_no) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
                 [mo]
             );
             const [sequenceRows] = await connection.execute(
