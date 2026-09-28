@@ -97,37 +97,24 @@
 
                     <section id="arnPanel" role="tabpanel" aria-labelledby="arnTab" hidden>
                         <form id="arnForm" class="needs-validation" novalidate>
+                            <p class="form-text mb-3">Enter the MO and Manufacturer Part No. from one ARN Excel row. ARN Part No., Quantity and PO come from that row. Each submission prints one label; Quantity is printed on the label, not used as the number of copies.</p>
                             <div class="mb-3">
                                 <label for="ARN_MO" class="form-label fw-medium">MO :</label>
-                                <input type="text" id="ARN_MO" name="MO"
+                                <input type="text" id="ARN_MO" name="MO" required
                                        class="form-control" placeholder="Enter Manufacturing Order">
-                                <div class="form-text">If blank, the configured temporary MO is used for the ARN running number.</div>
+                                <div class="invalid-feedback">MO field is required.</div>
                             </div>
 
                             <div class="mb-3">
-                                <label for="ARN_ActID" class="form-label fw-medium">Actmax Part No. :</label>
-                                <input type="text" id="ARN_ActID" name="ActID" required
-                                       class="form-control" placeholder="Enter Actmax Part No.">
-                                <div class="invalid-feedback">Actmax ID field is required.</div>
+                                <label for="ARN_ManufacturerPartNo" class="form-label fw-medium">Mfr Part No. :</label>
+                                <input type="text" id="ARN_ManufacturerPartNo" name="ManufacturerPartNo" required
+                                       class="form-control" placeholder="Enter Manufacturer Part No.">
+                                <div class="invalid-feedback">Manufacturer Part No. is required.</div>
                             </div>
 
                             <div class="mb-3">
-                                <label for="ARN_Quantity" class="form-label fw-medium">Quantity :</label>
-                                <input type="number" id="ARN_Quantity" name="quantity" required min="1" step="1"
-                                       class="form-control" placeholder="Enter label quantity">
-                                <div class="invalid-feedback">Enter a positive whole-number quantity.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="ARN_PO" class="form-label fw-medium">PO Number :</label>
-                                <input type="text" id="ARN_PO" name="PO" required
-                                       class="form-control" placeholder="Enter PO number">
-                                <div class="invalid-feedback">PO number is required.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="ARN_CustID" class="form-label fw-medium">Customer Part No. :</label>
-                                <input type="text" id="ARN_CustID" name="CustID" readonly
+                                <label for="ARNPartNoDisplay" class="form-label fw-medium">ARN Part No. (from Excel) :</label>
+                                <input type="text" id="ARNPartNoDisplay" name="ARNPartNoDisplay" readonly
                                        value="Awaiting print job..." class="form-control">
                             </div>
 
@@ -140,11 +127,11 @@
 
                 <!-- General Response Area -->
                 <div id="response" class="text-secondary mt-5">
-                    <p id="message" class="text-sm">Form ready. Enter MO & Actmax ID to begin.</p>
+                    <p id="message" class="text-sm">Choose a label tab, then enter its MO and matching part number.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Bootstrap 5 JavaScript Bundle (Popper included) -->
-    <script src="ajax.js?v=arn-mode-explicit-2"></script>
+    <script src="ajax.js?v=arn-excel-mo-3"></script>

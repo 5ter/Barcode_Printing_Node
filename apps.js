@@ -25,19 +25,23 @@ const { printLabel_two, printLabel_arn } = require('./utils/printer');
 const { generateArnLabel } = require('./utils/arn_label');
 const arnLabelSettings = require('./config/arnLabelSetting');
 
-// --- Main Route: Handle Data Submission (with Transaction) ---
+// --- Main Route: Handle Standard or ARN label submissions transactionally ---
 app.post('/submit-data', async (req, res) => {
     let connection;
     try {
-        const { MO, ActID, printerUrl_id, labelMode, quantity: arnQuantity, PO: arnPurchaseOrder } = req.body;
-        const selectedLabelMode = typeof labelMode === 'string'
-            ? labelMode.trim().toUpperCase()
-            : '';
+        const { MO, ActID, ManufacturerPartNo, printerUrl_id, labelMode } = req.body;
+        const selectedLabelMode = typeof labelMode === 'string' ? labelMode.trim().toUpperCase() : '';
 
-        logger.log(`Received POST request with data: MO: ${MO}, ActID: ${ActID}, Printer: ${printerUrl_id}, Label mode: ${selectedLabelMode || '<missing>'}`);
+        logger.log(
+            'Received POST request: MO: ' + (MO || '') +
+            ', ActID: ' + (ActID || '') +
+            ', ManufacturerPartNo: ' + (ManufacturerPartNo || '') +
+            ', Printer: ' + (printerUrl_id || '') +
+            ', Label mode: ' + (selectedLabelMode || '<missing>')
+        );
 
-        // Never guess the label type. A stale page that omits this value must
-        // not accidentally enter the STANDARD path and create two records.
+        // The active tab explicitly selects the print flow; never infer it from
+        // which fields happened to be submitted.
         if (selectedLabelMode !== 'STANDARD' && selectedLabelMode !== 'ARN') {
             return res.status(400).json({
                 status: 'error',
@@ -46,107 +50,139 @@ app.post('/submit-data', async (req, res) => {
         }
 
         const isArnLabel = selectedLabelMode === 'ARN';
-        const quantity = Number(arnQuantity);
-        const purchaseOrder = String(arnPurchaseOrder || '').trim();
+        const mo = String(MO || '').trim();
+        const manufacturerPartNumber = String(ManufacturerPartNo || '').trim();
 
-        connection = await db.getConnection(); 
-        await connection.beginTransaction(); 
-
-        // 1. Fetch the base product details from the established table.
-        const check_ref_query = 'SELECT Product_code, Manufacturing_ID, Customer_ID FROM product_code_ref WHERE Actmax_ID = ?';
-        const [rows_ref] = await connection.execute(check_ref_query, [ActID]);
-
-        if (rows_ref.length === 0) {
-            logger.log('No product found for the given Actmax_ID.'); // Replaced
-            await connection.rollback(); 
-            return res.status(404).json({
-                status: 'error',
-                message: 'No product configuration found for the given Actmax_ID.'
-            });
-        }
-        
-        const { Product_code: productCode, Manufacturing_ID: manufacturingID, Customer_ID: customerID } = rows_ref[0];
-        // The printing screen chooses which label layout to use. ARN quantity
-        // and PO are supplied for this request and are not Excel fields.
-
-        if (isArnLabel && (!Number.isInteger(quantity) || quantity <= 0 || !purchaseOrder)) {
-            await connection.rollback();
+        if (isArnLabel && (!mo || !manufacturerPartNumber)) {
             return res.status(400).json({
                 status: 'error',
-                message: 'ARN printing requires a positive whole-number quantity and a PO number.'
+                message: 'ARN printing requires the MO and Manufacturer Part No. from the Excel row.'
             });
         }
-
-        // The browser may leave MO blank only for ARN products. Standard
-        // products retain the former required-MO behaviour on the server.
-        if (!isArnLabel && !String(MO || '').trim()) {
-            await connection.rollback();
+        if (!isArnLabel && !mo) {
             return res.status(400).json({
                 status: 'error',
                 message: 'MO is required for a standard label.'
             });
         }
 
-        logger.log('- Label Type: ' + (isArnLabel ? 'ARN' : 'STANDARD'));
-        logger.log(`- Product_Code: ${productCode}`); // Replaced
-        logger.log(`- Manufacturing_ID: ${manufacturingID}`); // Replaced
-        logger.log(`- Customer_ID: ${customerID}`); // Replaced
-        
+        connection = await db.getConnection();
+        await connection.beginTransaction();
 
-        // --- NEW LOGIC: Determine which printer to use based on selectedPrinter ---
-        const printerId = "PRINTER_"+ printerUrl_id;
-        logger.log(`- printer_ID: ${printerId}`); // Replaced
+        let arnData;
+        let productCode;
+        let manufacturingID;
+        let customerID;
+
+        if (isArnLabel) {
+            // The ARN table is authoritative for all variable ARN label fields.
+            // This branch deliberately does not read product_code_ref or write
+            // to products_unique.
+            const [arnRows] = await connection.execute(
+                'SELECT mo, arn_part_no, quantity, manufacturer_part_no, purchase_order FROM arn_label_data WHERE mo = ? AND manufacturer_part_no = ?',
+                [mo, manufacturerPartNumber]
+            );
+            if (arnRows.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({
+                    status: 'error',
+                    message: 'No ARN Excel row matches that MO and Manufacturer Part No. Check both values and upload the current workbook.'
+                });
+            }
+            arnData = arnRows[0];
+        } else {
+            // Existing Standard lookup and its print/serial flow remain separate.
+            const checkRefQuery =
+                'SELECT Product_code, Manufacturing_ID, Customer_ID FROM product_code_ref WHERE Actmax_ID = ?';
+            const [rowsRef] = await connection.execute(checkRefQuery, [ActID]);
+            if (rowsRef.length === 0) {
+                logger.log('No product found for the given Actmax_ID.');
+                await connection.rollback();
+                return res.status(404).json({
+                    status: 'error',
+                    message: 'No product configuration found for the given Actmax_ID.'
+                });
+            }
+            ({
+                Product_code: productCode,
+                Manufacturing_ID: manufacturingID,
+                Customer_ID: customerID
+            } = rowsRef[0]);
+        }
+
+        logger.log('- Label Type: ' + selectedLabelMode);
+        if (isArnLabel) {
+            logger.log('- ARN Part No.: ' + arnData.arn_part_no);
+            logger.log('- Manufacturer Part No.: ' + arnData.manufacturer_part_no);
+            logger.log('- Quantity printed on label: ' + arnData.quantity);
+            logger.log('- Purchase Order: ' + arnData.purchase_order);
+        } else {
+            logger.log('- Product_Code: ' + productCode);
+            logger.log('- Manufacturing_ID: ' + manufacturingID);
+            logger.log('- Customer_ID: ' + customerID);
+        }
+
+        // Use the printer selected in the interface (A-D) for either mode.
+        const printerId = 'PRINTER_' + printerUrl_id;
+        logger.log('- printer_ID: ' + printerId);
         const printerConfig = config.getPrinterConfig(printerId);
-        
         if (!printerConfig) {
-            logger.error(`Printer configuration for ID ${printerId} not found.`); // Replaced with logger.error
+            logger.error('Printer configuration for ID ' + printerId + ' not found.');
             await connection.rollback();
             return res.status(500).json({
                 status: 'error',
-                message: `Printer configuration for ID ${printerId} is missing. Please check settings.`
+                message: 'Printer configuration for ID ' + printerId + ' is missing. Please check settings.'
             });
         }
-        logger.log(`- Selected Printer: ${printerConfig.NAME} (${printerConfig.IP}:${printerConfig.PORT})`); // Replaced
-        // -----------------------------------------------------------------
+        logger.log('- Selected Printer: ' + printerConfig.NAME + ' (' + printerConfig.IP + ':' + printerConfig.PORT + ')');
 
-        // Call the imported function
-        const yyww = getWWYY.getWWYY(); 
-        const code_group = productCode + manufacturingID + yyww; 
+        const yyww = getWWYY.getWWYY();
 
-        // ARN products reserve a number from arn_label_sequence. The primary
-        // key is MO only: date, product code, and part number do not reset it.
         if (isArnLabel) {
-            const arnMO = String(MO || '').trim() || arnLabelSettings.DEFAULT_MO;
+            // Sequence is scoped to MO. Every distinct Excel row (therefore
+            // every newly assigned MO) begins at 0; later labels for the same
+            // MO increment after a successful prior print.
             await connection.execute(
                 'INSERT INTO arn_label_sequence (MO, last_item_no) VALUES (?, 0) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
-                [arnMO]
+                [mo]
             );
             const [sequenceRows] = await connection.execute(
                 'SELECT last_item_no FROM arn_label_sequence WHERE MO = ? FOR UPDATE',
-                [arnMO]
+                [mo]
             );
             const itemNo = Number(sequenceRows[0].last_item_no);
             if (!Number.isSafeInteger(itemNo) || itemNo < 0) {
-                throw new Error('Invalid ARN sequence value for MO ' + arnMO);
+                throw new Error('Invalid ARN sequence value for MO ' + mo);
             }
 
             const arnReference = yyww + '-' + itemNo.toString().padStart(6, '0');
-            const [insertResult] = await connection.execute(
-                'INSERT INTO products_unique (mo, Cust_part_no, Act_part_no, product_code_group, Unique_serial, Label_content, printer_ID) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [arnMO, customerID, ActID, code_group, itemNo, arnReference, printerId]
-            );
-
             const arnPayload = generateArnLabel({
-                arnPartNumber: customerID,
-                quantity,
-                manufacturerPartNumber: ActID,
-                purchaseOrder,
+                arnPartNumber: arnData.arn_part_no,
+                quantity: arnData.quantity,
+                manufacturerPartNumber: arnData.manufacturer_part_no,
+                purchaseOrder: arnData.purchase_order,
                 dateCode: yyww,
                 itemNo,
                 manufacturerName: arnLabelSettings.MANUFACTURER_NAME,
                 madeInText: arnLabelSettings.MADE_IN_TEXT
             });
 
+            await connection.execute(
+                'INSERT INTO arn_label_print_history (mo, arn_part_no, quantity, manufacturer_part_no, purchase_order, date_code, item_no, label_content, printer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    mo,
+                    arnData.arn_part_no,
+                    arnData.quantity,
+                    arnData.manufacturer_part_no,
+                    arnData.purchase_order,
+                    yyww,
+                    itemNo,
+                    arnReference,
+                    printerId
+                ]
+            );
+
+            // Exactly one ARN label is sent. Quantity is label data, not copies.
             await printLabel_arn(arnPayload, printerConfig.IP, printerConfig.PORT);
             await connection.commit();
             logger.log('Single ARN label printed and transaction committed successfully.');
@@ -154,80 +190,69 @@ app.post('/submit-data', async (req, res) => {
             return res.status(200).json({
                 status: 'success',
                 message: arnReference,
-                insertedId: [insertResult.insertId],
-                newSerial: [itemNo.toString().padStart(6, '0')],
-                customerID
+                newSerial: itemNo.toString().padStart(6, '0'),
+                mo,
+                arnPartNo: arnData.arn_part_no,
+                quantity: arnData.quantity,
+                manufacturerPartNo: arnData.manufacturer_part_no,
+                purchaseOrder: arnData.purchase_order
             });
         }
 
-        // 2. Standard-label serial logic remains exactly as it was.
-        const serial_query = 'SELECT MAX(CAST(Unique_serial AS UNSIGNED)) AS max_serial FROM products_unique WHERE product_code_group = ? FOR UPDATE'; 
+        // Existing Standard serial calculation, two inserts, and combined
+        // printer call are intentionally retained.
+        const code_group = productCode + manufacturingID + yyww;
+        const serial_query =
+            'SELECT MAX(CAST(Unique_serial AS UNSIGNED)) AS max_serial FROM products_unique WHERE product_code_group = ? FOR UPDATE';
         const [rows] = await connection.execute(serial_query, [code_group]);
-        
+
         const lastSerial = rows[0].max_serial || 0;
-        const newSerial = (lastSerial + 1).toString().padStart(5, '0'); // Serial 1
-        const newSerial_2 = (lastSerial + 2).toString().padStart(5, '0'); // Serial 2
+        const newSerial = (lastSerial + 1).toString().padStart(5, '0');
+        const newSerial_2 = (lastSerial + 2).toString().padStart(5, '0');
+        const label_Con = productCode + manufacturingID + yyww + newSerial;
+        const label_Con_2 = productCode + manufacturingID + yyww + newSerial_2;
 
-        const label_Con = productCode + manufacturingID + yyww + newSerial; // Label content 1
-        const label_Con_2 = productCode + manufacturingID + yyww + newSerial_2; // Label content 2
+        logger.log('- New Serial 1: ' + newSerial);
+        logger.log('- New Serial 2: ' + newSerial_2);
+        logger.log('- Label Content 1: ' + label_Con);
+        logger.log('- Label Content 2: ' + label_Con_2);
+        logger.log('- Product code group: ' + code_group);
 
-        logger.log(`- New Serial 1: ${newSerial}`); // Replaced
-        logger.log(`- New Serial 2: ${newSerial_2}`); // Replaced
-        logger.log(`- Label Content 1: ${label_Con}`); // Replaced
-        logger.log(`- Label Content 2: ${label_Con_2}`); // Replaced
-        logger.log(`- Product code group: ${code_group}`); // Replaced
-
-        // 3. Insert the new data for the FIRST label
         const [insertResult] = await connection.execute(
             'INSERT INTO products_unique (mo, Cust_part_no, Act_part_no, product_code_group, Unique_serial, Label_content, printer_ID) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [MO, customerID, ActID, code_group, newSerial, label_Con, printerId]
         );
-
-        // 3. Insert the new data for the SECOND label (HIDE HERE if only need to print 1 label)
         const [insertResult_2] = await connection.execute(
             'INSERT INTO products_unique (mo, Cust_part_no, Act_part_no, product_code_group, Unique_serial, Label_content, printer_ID) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [MO, customerID, ActID, code_group, newSerial_2, label_Con_2, printerId] // <-- Using newSerial_2 and label_Con_2
+            [MO, customerID, ActID, code_group, newSerial_2, label_Con_2, printerId]
         );
 
-        logger.log('Data for both labels inserted successfully into transaction.'); // Replaced
-        
-        // 4. Print the label (now passing the dynamically selected IP and Port)
-        // You are calling printLabel_one AND printLabel_two, this may print 3 labels total. 
-        // Assuming you intended to print ONLY the combined label:
-
-//----> await printLabel_one(label_Con, printerConfig.IP, printerConfig.PORT); // <-- Comment out if you only want printLabel_two
-      await printLabel_two(label_Con, label_Con_2, printerConfig.IP, printerConfig.PORT); // <-- AWAIT PRINTING, passing selected config
-
-
-        // 5. Commit the transaction (DB write is finalized only after successful print)
+        logger.log('Data for both Standard labels inserted successfully into transaction.');
+        await printLabel_two(label_Con, label_Con_2, printerConfig.IP, printerConfig.PORT);
         await connection.commit();
-        logger.log('Database transaction committed successfully.'); // Replaced
+        logger.log('Database transaction committed successfully.');
 
-        // 6. Send a success response
-        res.status(200).json({
+        return res.status(200).json({
             status: 'success',
-            message: ` ${label_Con}, ${label_Con_2}`,
+            message: label_Con + ', ' + label_Con_2,
             insertedId: [insertResult.insertId, insertResult_2.insertId],
             newSerial: [newSerial, newSerial_2],
-            customerID: customerID
+            customerID
         });
-
     } catch (error) {
-        // Rollback the transaction on ANY error (DB or Printing)
         if (connection) {
             await connection.rollback();
-            logger.log('Database transaction rolled back.'); // Replaced
+            logger.log('Database transaction rolled back.');
         }
-        
-        logger.error('Error processing data:', error); // Replaced with logger.error
-        res.status(500).json({
+        logger.error('Error processing data:', error);
+        return res.status(500).json({
             status: 'error',
             message: 'An error occurred while processing your request: ' + error.message
         });
     } finally {
         if (connection) {
-            connection.release(); // Always release the connection
-            logger.log('Database connection released.'); // Replaced
+            connection.release();
+            logger.log('Database connection released.');
         }
     }
 });

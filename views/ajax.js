@@ -10,12 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function focusNextInput(form) {
         const mo = form.elements.MO;
-        const actId = form.elements.ActID;
+        const partNumber = form.elements.ActID || form.elements.ManufacturerPartNo;
 
         if (mo && !mo.value) {
             mo.focus();
-        } else if (actId && !actId.value) {
-            actId.focus();
+        } else if (partNumber && !partNumber.value) {
+            partNumber.focus();
         }
     }
 
@@ -42,13 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     [standardForm, arnForm].forEach((form) => {
         const mo = form.elements.MO;
-        const actId = form.elements.ActID;
+        const partNumber = form.elements.ActID || form.elements.ManufacturerPartNo;
         mo.addEventListener('change', () => focusNextInput(form));
-        actId.addEventListener('change', () => focusNextInput(form));
+        partNumber.addEventListener('change', () => focusNextInput(form));
     });
 
     async function submitPrint(form, mode) {
-        const customerDisplay = form.elements.CustID;
+        const resultDisplay = mode === 'ARN'
+            ? form.elements.ARNPartNoDisplay
+            : form.elements.CustID;
         const submitButton = form.querySelector('button[type="submit"]');
 
         if (!form.checkValidity()) {
@@ -59,17 +61,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const payload = {
             MO: form.elements.MO.value,
-            ActID: form.elements.ActID.value,
             printerUrl_id: printerId,
             labelMode: mode
         };
 
         if (mode === 'ARN') {
-            payload.quantity = form.elements.quantity.value;
-            payload.PO = form.elements.PO.value;
+            payload.ManufacturerPartNo = form.elements.ManufacturerPartNo.value;
+        } else {
+            payload.ActID = form.elements.ActID.value;
         }
 
-        customerDisplay.value = 'Processing request... Please wait.';
+        resultDisplay.value = 'Processing request... Please wait.';
         message.textContent = 'Sending ' + (mode === 'ARN' ? 'ARN ' : '') +
             'print request (Printer: ' + (printerId || 'Default') + ')...';
         form.classList.remove('was-validated');
@@ -86,13 +88,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.message || 'Request failed with status ' + response.status);
             }
 
-            customerDisplay.value = data.customerID || 'N/A';
+            resultDisplay.value = mode === 'ARN'
+                ? (data.arnPartNo || 'N/A')
+                : (data.customerID || 'N/A');
             const serial = Array.isArray(data.newSerial) ? data.newSerial.join(', ') : data.newSerial;
-            message.textContent = 'Print job successful. Serial: ' + serial +
-                '. Generated label: ' + data.message;
+            if (mode === 'ARN') {
+                message.textContent = 'ARN label printed. MO: ' + data.mo +
+                    '; Qty on label: ' + data.quantity +
+                    '; PO: ' + data.purchaseOrder +
+                    '; Mfr Ref: ' + data.message;
+            } else {
+                message.textContent = 'Print job successful. Serial: ' + serial +
+                    '. Generated label: ' + data.message;
+            }
         } catch (error) {
             console.error('Print request failed:', error);
-            customerDisplay.value = 'FAILED';
+            resultDisplay.value = 'FAILED';
             message.textContent = 'Error: ' + error.message;
         } finally {
             submitButton.disabled = false;

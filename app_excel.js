@@ -18,25 +18,65 @@ const logger = require('./utils/logger');
 // 1. Multer setup to handle file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// 2. Define the database columns and table name
-const DB_TABLE = 'product_code_ref'; 
+// Standard imports retain their existing table and UPSERT behavior.
+const DB_TABLE = 'product_code_ref';
 const DB_COLUMNS = [
-'product_name', 
-'product_code',
-'manufacturing_id',
-'customer_id',
-'actmax_id' // This MUST be a UNIQUE KEY in your MySQL table
+    'product_name',
+    'product_code',
+    'manufacturing_id',
+    'customer_id',
+    'actmax_id'
 ];
 const UNIQUE_KEY_COLUMN = 'actmax_id';
-const PLACEHOLDERS = DB_COLUMNS.map(() => '?').join(', '); 
+const PLACEHOLDERS = DB_COLUMNS.map(() => '?').join(', ');
+const ARN_COLUMNS = [
+    'arn_partno',
+    'quantity',
+    'manufacturer_partno',
+    'purchase_order',
+    'mo_no'
+];
+const ARN_DB_COLUMNS = [
+    'arn_part_no',
+    'quantity',
+    'manufacturer_part_no',
+    'purchase_order',
+    'mo'
+];
 
 // --- Utility Functions ---
 
 // Generates the human-readable list of required headers for the HTML
 function getRequiredHeadersMessage() {
-return DB_COLUMNS.map(h => 
-h.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-).join(', ');
+    return `<p class="mb-1"><strong>Standard:</strong> Product Name, Product Code, Manufacturing ID, Customer ID, Actmax ID</p>
+            <p class="mb-1"><strong>ARN:</strong> ARN PartNo, Quantity, Manufacturer PartNo, Purchase Order, MO No.</p>`;
+}
+
+function normalizeHeader(value) {
+    return String(value || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+function getCellValue(cell) {
+    let value = cell.value;
+    if (value && typeof value === 'object') {
+        if (value.result !== undefined) value = value.result;
+        else if (Array.isArray(value.richText)) value = value.richText.map(part => part.text).join('');
+        else if (value.text !== undefined) value = value.text;
+    }
+    if (value === null || value === undefined) return '';
+    // Use Excel's displayed text for numeric identifiers (for example, values
+    // formatted with leading zeroes); otherwise preserve the underlying value.
+    return typeof value === 'number' && cell.text ? cell.text.trim() : String(value).trim();
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
 }
 
 
@@ -111,7 +151,9 @@ app.get('/', (req, res) => {
 
           <div class="alert alert-danger mt-4" role="alert">
             <h6 class="alert-heading mb-2">Required Excel Headers (in the first row):</h6>
-            <small class="text-danger">Note: Headers are case and space insensitive, but listed here with proper names.</small>
+            <small class="text-danger">Upload either a Standard workbook or an ARN workbook. Header matching ignores capitalization and punctuation.</small>
+            <div class="mt-2 text-dark">${requiredHeaders}</div>
+            <p class="small text-muted mt-2 mb-0">ARN MO must be unique. Re-uploading identical data is skipped; if any ARN row value changes, assign that row a new MO.</p>
           </div>
         </div>
       </div>
@@ -122,224 +164,254 @@ app.get('/', (req, res) => {
 `);
 });
 
-// 2. Handle the file upload and database UPSERT (Insert or Update)
+// 2. Handle workbook uploads. Standard rows keep the legacy UPSERT; ARN rows
+// are immutable by MO and are inserted only into the ARN-specific table.
 app.post('/upload', upload.single('excelFile'), async (req, res) => {
-    // Check 1: No file uploaded (early return, no cleanup needed)
     if (!req.file) {
-        return res.status(400).send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Upload Error</title>
-                <!-- Using CDN for reliability in error page -->
-                <link href="css/bootstrap.min.css" rel="stylesheet"> 
-            </head>
-            <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                <div class="card shadow-lg p-5 text-center" style="max-width: 500px;">
-                    <h1 class="card-title text-danger mb-3">Upload Failed</h1>
-                    <p class="text-danger mb-4">No file was uploaded. Please select an Excel file.</p>
-                    <a href="/" class="btn btn-warning mt-3">Try again</a>
-                </div>
-            </body>
-            </html>
-        `);
+        return res.status(400).send('<p>No file was uploaded. Please select an Excel file.</p><p><a href="/">Try again</a></p>');
     }
 
     const filePath = req.file.path;
-    
-    // Check 2: Empty file (0 bytes) - CRITICAL CHECK ADDED
-    if (req.file.size === 0) {
-        // Immediate cleanup is required for this early return
-        fs.unlink(filePath, (err) => {
-            if (err) logger.error('Error deleting 0-byte file:', err);
-            logger.log(`Cleaned up 0-byte temporary file: ${filePath}`);
-        });
-        
-        return res.status(400).send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Upload Error</title>
-               <link href="css/bootstrap.min.css" rel="stylesheet"> 
-            </head>
-            <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                <div class="card shadow-lg p-5 text-center" style="max-width: 500px;">
-                    <h1 class="card-title text-danger mb-3">Upload Failed</h1>
-                    <p class="text-danger mb-4">The uploaded file is **empty (0 bytes)**. Please ensure the file contains data.</p>
-                    <a href="/" class="btn btn-warning mt-3">Try again</a>
-                </div>
-            </body>
-            </html>
-        `);
-    }
-
-
-    let rowsToInsert = [];
-    let headers = [];
+    let connection;
+    let importMode = '';
 
     try {
-        // --- A. Read and Parse the Excel file using exceljs ---
+        if (req.file.size === 0) {
+            const error = new Error('The uploaded file is empty (0 bytes).');
+            error.statusCode = 400;
+            throw error;
+        }
+
         const workbook = new Excel.Workbook();
-        await workbook.xlsx.readFile(filePath);
+        try {
+            await workbook.xlsx.readFile(filePath);
+        } catch (parseError) {
+            parseError.statusCode = 400;
+            throw parseError;
+        }
         const worksheet = workbook.getWorksheet(1);
+        if (!worksheet) {
+            const error = new Error('The workbook does not contain a first worksheet.');
+            error.statusCode = 400;
+            throw error;
+        }
 
-        // 1. Get Headers and normalize them (e.g., "Product Name" -> "product_name")
         const headerRow = worksheet.getRow(1);
-        if (headerRow.values) {
-            headers = headerRow.values
-                .slice(1)
-                .map(h => h ? h.toString().toLowerCase().trim().replace(/\s/g, '_') : null)
-                .filter(h => h);
-        } else {
-            throw new Error("Could not read headers from the Excel file.");
+        const headerColumns = [];
+        const headerNames = new Set();
+        for (let column = 1; column <= headerRow.cellCount; column++) {
+            const name = normalizeHeader(getCellValue(headerRow.getCell(column)));
+            headerColumns.push({ column, name });
+            if (name && headerNames.has(name)) {
+                const error = new Error('The worksheet contains a duplicate header: ' + name);
+                error.statusCode = 400;
+                throw error;
+            }
+            if (name) headerNames.add(name);
         }
 
-        // 2. Validate that required headers are present
-        const missingHeaders = DB_COLUMNS.filter(col => !headers.includes(col));
-        if (missingHeaders.length > 0) {
-            throw new Error(`Missing required Excel columns`);
+        const hasStandardHeaders = DB_COLUMNS.every(column => headerNames.has(column));
+        const hasArnHeaders = ARN_COLUMNS.every(column => headerNames.has(column));
+        if (hasStandardHeaders === hasArnHeaders) {
+            const error = new Error(
+                'The first row must contain exactly one supported template: either the Standard headers or the ARN headers shown on the upload page.'
+            );
+            error.statusCode = 400;
+            throw error;
+        }
+        importMode = hasArnHeaders ? 'ARN' : 'STANDARD';
+        const requiredColumns = importMode === 'ARN' ? ARN_COLUMNS : DB_COLUMNS;
+        const missingHeaders = requiredColumns.filter(column => !headerNames.has(column));
+        if (missingHeaders.length) {
+            const error = new Error('Missing required columns: ' + missingHeaders.join(', '));
+            error.statusCode = 400;
+            throw error;
         }
 
-        // 3. Iterate over data rows
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) { // Skip the header row
-                let rowObject = {};
-                const values = row.values.slice(1); 
+        const rowsToImport = [];
+        const seenMo = new Set();
+        worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const rowObject = {};
+            for (const header of headerColumns) {
+                if (header.name) rowObject[header.name] = getCellValue(row.getCell(header.column));
+            }
 
-                headers.forEach((header, index) => {
-                    let cellValue = values[index];
-                    // Handle potential Cell object values from exceljs (e.g., if a cell contains a formula)
-                    if (cellValue && typeof cellValue === 'object' && cellValue.result !== undefined) {
-                        cellValue = cellValue.result; // Use calculated value
-                    } else if (cellValue && typeof cellValue === 'object' && cellValue.text !== undefined) {
-                        cellValue = cellValue.text; // Use text value
-                    }
-                    rowObject[header] = cellValue;
-                });
+            const hasAnyValue = requiredColumns.some(column => String(rowObject[column] || '').trim() !== '');
+            if (!hasAnyValue) return;
 
-                // Only push the row if the unique key column has a value
+            if (importMode === 'STANDARD') {
+                // Match the old importer: rows without an Actmax ID are ignored.
                 if (rowObject[UNIQUE_KEY_COLUMN]) {
-                    rowsToInsert.push(rowObject);
+                    rowsToImport.push({ data: rowObject, rowNumber });
+                }
+                return;
+            }
+
+            const missingValues = ARN_COLUMNS.filter(column => String(rowObject[column] || '').trim() === '');
+            if (missingValues.length) {
+                const error = new Error(
+                    'ARN worksheet row ' + rowNumber + ' is incomplete. Required values missing: ' + missingValues.join(', ')
+                );
+                error.statusCode = 400;
+                throw error;
+            }
+
+            const quantityText = String(rowObject.quantity).trim();
+            const quantity = Number(quantityText);
+            if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 4294967295) {
+                const error = new Error('ARN worksheet row ' + rowNumber + ' must have a Quantity from 1 to 4,294,967,295.');
+                error.statusCode = 400;
+                throw error;
+            }
+
+            for (const textColumn of ['arn_partno', 'manufacturer_partno', 'purchase_order']) {
+                if (!/^[\x20-\x7E]+$/.test(String(rowObject[textColumn]).trim())) {
+                    const error = new Error(
+                        'ARN worksheet row ' + rowNumber + ' has non-printable or non-ASCII characters in ' + textColumn + '.'
+                    );
+                    error.statusCode = 400;
+                    throw error;
                 }
             }
+
+            const mo = String(rowObject.mo_no).trim();
+            const moKey = mo.toUpperCase();
+            if (seenMo.has(moKey)) {
+                const error = new Error('ARN worksheet contains MO ' + mo + ' more than once. Each ARN row must have its own unique MO.');
+                error.statusCode = 400;
+                throw error;
+            }
+            seenMo.add(moKey);
+            rowsToImport.push({
+                data: {
+                    arn_partno: String(rowObject.arn_partno).trim(),
+                    quantity,
+                    manufacturer_partno: String(rowObject.manufacturer_partno).trim(),
+                    purchase_order: String(rowObject.purchase_order).trim(),
+                    mo_no: mo
+                },
+                rowNumber
+            });
         });
 
-        // Check 3: File contains headers but no data rows (Updated to styled response)
-        if (rowsToInsert.length === 0) {
-            // File cleanup is handled in the final block.
-            return res.status(400).send(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>No Data Found</title>
-                    <link href="css/bootstrap.min.css" rel="stylesheet"> 
-                <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                    <div class="card shadow-lg p-5 text-center" style="max-width: 500px;">
-                        <h1 class="card-title text-warning mb-3">No Data Found ⚠️</h1>
-                        <p class="text-warning mb-4">The Excel file contains headers but no valid data rows to process (The unique key column may be empty).</p>
-                        <a href="/" class="btn btn-warning mt-3">Try again</a>
-                    </div>
-                </body>
-                </html>
-            `);
+        if (rowsToImport.length === 0) {
+            const error = new Error('The worksheet contains headers but no valid data rows.');
+            error.statusCode = 400;
+            throw error;
         }
 
-        // --- B. Perform UPSERT (INSERT OR UPDATE) using the DB Pool ---
         let insertedCount = 0;
         let updatedCount = 0;
-        let skippedCount = 0; 
-
-        const connection = await db.getConnection(); 
+        let skippedCount = 0;
+        connection = await db.getConnection();
         await connection.beginTransaction();
 
         try {
-            // Construct the UPDATE part of the query (update all columns except the unique key)
-            const updateClauses = DB_COLUMNS
-                .filter(col => col !== UNIQUE_KEY_COLUMN) 
-                .map(col => `${col} = VALUES(${col})`)
-                .join(', ');
+            if (importMode === 'ARN') {
+                for (const importedRow of rowsToImport) {
+                    const row = importedRow.data;
+                    const [existingRows] = await connection.execute(
+                        'SELECT arn_part_no, quantity, manufacturer_part_no, purchase_order FROM arn_label_data WHERE mo = ? FOR UPDATE',
+                        [row.mo_no]
+                    );
 
-            // Final UPSERT query
-            const upsertQuery = `
-                INSERT INTO ${DB_TABLE} (${DB_COLUMNS.join(', ')}) 
-                VALUES (${PLACEHOLDERS})
-                ON DUPLICATE KEY UPDATE 
-                ${updateClauses};
-            `;
+                    if (existingRows.length) {
+                        const existing = existingRows[0];
+                        const unchanged =
+                            String(existing.arn_part_no) === row.arn_partno &&
+                            Number(existing.quantity) === row.quantity &&
+                            String(existing.manufacturer_part_no) === row.manufacturer_partno &&
+                            String(existing.purchase_order) === row.purchase_order;
 
-            for (const row of rowsToInsert) {
-                // Construct the values array in the correct order
-                const values = DB_COLUMNS.map(col => row[col] || null);
+                        if (!unchanged) {
+                            const error = new Error(
+                                'MO ' + row.mo_no + ' already exists with different label data. The existing row was not changed; assign a new MO in Excel for the changed data.'
+                            );
+                            error.statusCode = 409;
+                            throw error;
+                        }
+                        skippedCount++;
+                        continue;
+                    }
 
-                // Execute the UPSERT query
-                const [result] = await connection.execute(upsertQuery, values);
-
-                // Check affectedRows: 1 = INSERT, 2 = UPDATE, 0 = NO CHANGE
-                if (result.affectedRows === 1) {
+                    await connection.execute(
+                        'INSERT INTO arn_label_data (' + ARN_DB_COLUMNS.join(', ') + ') VALUES (?, ?, ?, ?, ?)',
+                        [row.arn_partno, row.quantity, row.manufacturer_partno, row.purchase_order, row.mo_no]
+                    );
                     insertedCount++;
-                } else if (result.affectedRows === 2) {
-                    updatedCount++;
-                } else if (result.affectedRows === 0) {
-                    skippedCount++; // Explicitly count rows where MySQL reported no change
+                }
+            } else {
+                const updateClauses = DB_COLUMNS
+                    .filter(column => column !== UNIQUE_KEY_COLUMN)
+                    .map(column => column + ' = VALUES(' + column + ')')
+                    .join(', ');
+                const upsertQuery =
+                    'INSERT INTO ' + DB_TABLE + ' (' + DB_COLUMNS.join(', ') + ') VALUES (' + PLACEHOLDERS + ')' +
+                    ' ON DUPLICATE KEY UPDATE ' + updateClauses;
+
+                for (const importedRow of rowsToImport) {
+                    const row = importedRow.data;
+                    const values = DB_COLUMNS.map(column => row[column] || null);
+                    const [result] = await connection.execute(upsertQuery, values);
+                    if (result.affectedRows === 1) insertedCount++;
+                    else if (result.affectedRows === 2) updatedCount++;
+                    else if (result.affectedRows === 0) skippedCount++;
                 }
             }
 
             await connection.commit();
-
-            res.send(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Import Result</title>
-                   <link href="css/bootstrap.min.css" rel="stylesheet"> 
-                </head>
-                <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                    <div class="card shadow-lg p-5 text-center" style="max-width: 500px;">
-                        <h1 class="card-title text-success mb-3">Import Successful! 🎉</h1>
-                        <p class="lead">Total rows processed: <strong>${rowsToInsert.length}</strong></p>
-                        <ul class="list-group list-group-flush text-start mb-4">
-                            <li class="list-group-item">Inserted: <span class="badge bg-primary float-end">${insertedCount}</span></li>
-                            <li class="list-group-item">Updated: <span class="badge bg-warning float-end">${updatedCount}</span></li>
-                            <li class="list-group-item">Skipped (no change): <span class="badge bg-secondary float-end">${skippedCount}</span></li>
-                        </ul>
-                        <a href="/" class="btn btn-primary mt-3">Upload another file</a>
-                    </div>
-                </body>
-                </html>
-            `);
-
-        } catch (dbError) {
+        } catch (databaseError) {
             await connection.rollback();
-            throw dbError; // Throw up to the main catch block
+            if (importMode === 'ARN' && databaseError.code === 'ER_DUP_ENTRY') {
+                databaseError.statusCode = 409;
+                databaseError.message =
+                    'An ARN MO in this workbook already exists. Existing MO rows are never overwritten; assign a new MO for changed data.';
+            }
+            throw databaseError;
         } finally {
-            connection.release(); // Return connection to the pool
+            connection.release();
+            connection = null;
         }
 
+        const updatedLine = importMode === 'STANDARD'
+            ? '<li class="list-group-item">Updated: <span class="badge bg-warning float-end">' + updatedCount + '</span></li>'
+            : '<li class="list-group-item">ARN rows are immutable: a changed record must use a new MO.</li>';
+        return res.send(`
+            <!DOCTYPE html>
+            <html><head><title>Import Result</title><link href="css/bootstrap.min.css" rel="stylesheet"></head>
+            <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
+                <div class="card shadow-lg p-5 text-center" style="max-width: 600px;">
+                    <h1 class="card-title text-success mb-3">Import Successful</h1>
+                    <p class="lead">${importMode} rows processed: <strong>${rowsToImport.length}</strong></p>
+                    <ul class="list-group list-group-flush text-start mb-4">
+                        <li class="list-group-item">Inserted: <span class="badge bg-primary float-end">${insertedCount}</span></li>
+                        ${updatedLine}
+                        <li class="list-group-item">Skipped (unchanged): <span class="badge bg-secondary float-end">${skippedCount}</span></li>
+                    </ul>
+                    <a href="/" class="btn btn-primary mt-3">Upload another file</a>
+                </div>
+            </body></html>
+        `);
     } catch (error) {
         logger.error('Processing/Database Error:', error);
-        res.status(500).send(`
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).send(`
             <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Import Failed</title>
-              <link href="css/bootstrap.min.css" rel="stylesheet"> 
+            <html><head><title>Import Failed</title><link href="css/bootstrap.min.css" rel="stylesheet"></head>
             <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                <div class="card shadow-lg p-5 text-center" style="max-width: 500px;">
-                    <h1 class="card-title text-danger mb-3">Import Failed </h1>
-                    <p class="text-danger mb-4">An error occurred: ${error.message}</p>
+                <div class="card shadow-lg p-5 text-center" style="max-width: 600px;">
+                    <h1 class="card-title text-danger mb-3">Import Failed</h1>
+                    <p class="text-danger mb-4">${escapeHtml(error.message)}</p>
                     <a href="/" class="btn btn-warning mt-3">Try again</a>
                 </div>
-            </body>
-            </html>
+            </body></html>
         `);
     } finally {
-        // C. Clean up the temporary file (only runs if filePath was defined)
-        if (filePath) {
-            fs.unlink(filePath, (err) => {
-                if (err) logger.error('Error deleting file:', err);
-                logger.log(`Cleaned up temporary file: ${filePath}`);
-            });
-        }
+        if (connection) connection.release();
+        fs.unlink(filePath, error => {
+            if (error) logger.error('Error deleting uploaded file:', error);
+        });
     }
 });
 
