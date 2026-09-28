@@ -33,15 +33,13 @@ const ARN_COLUMNS = [
     'arn_partno',
     'quantity',
     'manufacturer_partno',
-    'purchase_order',
-    'mo_no'
+    'purchase_order'
 ];
 const ARN_DB_COLUMNS = [
     'arn_part_no',
     'quantity',
     'manufacturer_part_no',
-    'purchase_order',
-    'mo'
+    'purchase_order'
 ];
 
 // --- Utility Functions ---
@@ -49,7 +47,7 @@ const ARN_DB_COLUMNS = [
 // Generates the human-readable list of required headers for the HTML
 function getRequiredHeadersMessage() {
     return `<p class="mb-1"><strong>Standard:</strong> Product Name, Product Code, Manufacturing ID, Customer ID, Actmax ID</p>
-            <p class="mb-1"><strong>ARN:</strong> ARN PartNo, Quantity, Manufacturer PartNo, Purchase Order, MO No.</p>`;
+            <p class="mb-1"><strong>ARN:</strong> ARN PartNo, Quantity, Manufacturer PartNo, Purchase Order</p>`;
 }
 
 function normalizeHeader(value) {
@@ -153,7 +151,7 @@ app.get('/', (req, res) => {
             <h6 class="alert-heading mb-2">Required Excel Headers (in the first row):</h6>
             <small class="text-danger">Upload either a Standard workbook or an ARN workbook. Header matching ignores capitalization and punctuation.</small>
             <div class="mt-2 text-dark">${requiredHeaders}</div>
-            <p class="small text-muted mt-2 mb-0">ARN MO must be unique. Re-uploading identical data is skipped; if any ARN row value changes, assign that row a new MO.</p>
+            <p class="small text-muted mt-2 mb-0">ARN Manufacturer PartNo is unique. Re-uploading it updates the current label data; each successful print keeps its own MO and data snapshot in print history.</p>
           </div>
         </div>
       </div>
@@ -165,7 +163,7 @@ app.get('/', (req, res) => {
 });
 
 // 2. Handle workbook uploads. Standard rows keep the legacy UPSERT; ARN rows
-// are immutable by MO and are inserted only into the ARN-specific table.
+// are keyed and updated by Manufacturer PartNo in the ARN-specific table.
 app.post('/upload', upload.single('excelFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).send('<p>No file was uploaded. Please select an Excel file.</p><p><a href="/">Try again</a></p>');
@@ -229,7 +227,6 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
         }
 
         const rowsToImport = [];
-        const seenMo = new Set();
         worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
             if (rowNumber === 1) return;
             const rowObject = {};
@@ -275,21 +272,13 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
                 }
             }
 
-            const mo = String(rowObject.mo_no).trim();
-            const moKey = mo.toUpperCase();
-            if (seenMo.has(moKey)) {
-                const error = new Error('ARN worksheet contains MO ' + mo + ' more than once. Each ARN row must have its own unique MO.');
-                error.statusCode = 400;
-                throw error;
-            }
-            seenMo.add(moKey);
+            const manufacturerPartNumber = String(rowObject.manufacturer_partno).trim();
             rowsToImport.push({
                 data: {
                     arn_partno: String(rowObject.arn_partno).trim(),
                     quantity,
-                    manufacturer_partno: String(rowObject.manufacturer_partno).trim(),
-                    purchase_order: String(rowObject.purchase_order).trim(),
-                    mo_no: mo
+                    manufacturer_partno: manufacturerPartNumber,
+                    purchase_order: String(rowObject.purchase_order).trim()
                 },
                 rowNumber
             });
@@ -309,37 +298,17 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
 
         try {
             if (importMode === 'ARN') {
+                const arnUpsertQuery =
+                    'INSERT INTO arn_label_data (' + ARN_DB_COLUMNS.join(', ') + ') VALUES (?, ?, ?, ?)' +
+                    ' ON DUPLICATE KEY UPDATE arn_part_no = VALUES(arn_part_no), ' +
+                    'quantity = VALUES(quantity), purchase_order = VALUES(purchase_order)';
                 for (const importedRow of rowsToImport) {
                     const row = importedRow.data;
-                    const [existingRows] = await connection.execute(
-                        'SELECT arn_part_no, quantity, manufacturer_part_no, purchase_order FROM arn_label_data WHERE mo = ? FOR UPDATE',
-                        [row.mo_no]
-                    );
-
-                    if (existingRows.length) {
-                        const existing = existingRows[0];
-                        const unchanged =
-                            String(existing.arn_part_no) === row.arn_partno &&
-                            Number(existing.quantity) === row.quantity &&
-                            String(existing.manufacturer_part_no) === row.manufacturer_partno &&
-                            String(existing.purchase_order) === row.purchase_order;
-
-                        if (!unchanged) {
-                            const error = new Error(
-                                'MO ' + row.mo_no + ' already exists with different label data. The existing row was not changed; assign a new MO in Excel for the changed data.'
-                            );
-                            error.statusCode = 409;
-                            throw error;
-                        }
-                        skippedCount++;
-                        continue;
-                    }
-
-                    await connection.execute(
-                        'INSERT INTO arn_label_data (' + ARN_DB_COLUMNS.join(', ') + ') VALUES (?, ?, ?, ?, ?)',
-                        [row.arn_partno, row.quantity, row.manufacturer_partno, row.purchase_order, row.mo_no]
-                    );
-                    insertedCount++;
+                    const values = [row.arn_partno, row.quantity, row.manufacturer_partno, row.purchase_order];
+                    const [result] = await connection.execute(arnUpsertQuery, values);
+                    if (result.affectedRows === 1) insertedCount++;
+                    else if (result.affectedRows === 2) updatedCount++;
+                    else if (result.affectedRows === 0) skippedCount++;
                 }
             } else {
                 const updateClauses = DB_COLUMNS
@@ -366,7 +335,7 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
             if (importMode === 'ARN' && databaseError.code === 'ER_DUP_ENTRY') {
                 databaseError.statusCode = 409;
                 databaseError.message =
-                    'An ARN MO in this workbook already exists. Existing MO rows are never overwritten; assign a new MO for changed data.';
+                    'The ARN table has a conflicting unique key. Verify that the Manufacturer Part No. re-key migration has been applied and existing duplicate part numbers have been reconciled.';
             }
             throw databaseError;
         } finally {
@@ -374,9 +343,7 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
             connection = null;
         }
 
-        const updatedLine = importMode === 'STANDARD'
-            ? '<li class="list-group-item">Updated: <span class="badge bg-warning float-end">' + updatedCount + '</span></li>'
-            : '<li class="list-group-item">ARN rows are immutable: a changed record must use a new MO.</li>';
+        const updatedLine = '<li class="list-group-item">Updated: <span class="badge bg-warning float-end">' + updatedCount + '</span></li>';
         return res.send(`
             <!DOCTYPE html>
             <html><head><title>Import Result</title><link href="css/bootstrap.min.css" rel="stylesheet"></head>

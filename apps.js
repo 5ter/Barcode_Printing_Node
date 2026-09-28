@@ -56,7 +56,7 @@ app.post('/submit-data', async (req, res) => {
         if (isArnLabel && (!mo || !manufacturerPartNumber)) {
             return res.status(400).json({
                 status: 'error',
-                message: 'ARN printing requires the MO and Manufacturer Part No. from the Excel row.'
+                message: 'ARN printing requires the MO reference and Manufacturer Part No. from the Excel row.'
             });
         }
         if (!isArnLabel && !mo) {
@@ -75,18 +75,19 @@ app.post('/submit-data', async (req, res) => {
         let customerID;
 
         if (isArnLabel) {
-            // The ARN table is authoritative for all variable ARN label fields.
+            // The ARN table is keyed by Manufacturer Part No. The operator's
+            // MO is a reference recorded with this print, not a lookup key.
             // This branch deliberately does not read product_code_ref or write
             // to products_unique.
             const [arnRows] = await connection.execute(
-                'SELECT mo, arn_part_no, quantity, manufacturer_part_no, purchase_order FROM arn_label_data WHERE mo = ? AND manufacturer_part_no = ?',
-                [mo, manufacturerPartNumber]
+                'SELECT arn_part_no, quantity, manufacturer_part_no, purchase_order FROM arn_label_data WHERE manufacturer_part_no = ?',
+                [manufacturerPartNumber]
             );
             if (arnRows.length === 0) {
                 await connection.rollback();
                 return res.status(404).json({
                     status: 'error',
-                    message: 'No ARN Excel row matches that MO and Manufacturer Part No. Check both values and upload the current workbook.'
+                    message: 'No ARN Excel row matches that Manufacturer Part No. Check the part number and upload the current workbook.'
                 });
             }
             arnData = arnRows[0];
@@ -114,6 +115,7 @@ app.post('/submit-data', async (req, res) => {
         if (isArnLabel) {
             logger.log('- ARN Part No.: ' + arnData.arn_part_no);
             logger.log('- Manufacturer Part No.: ' + arnData.manufacturer_part_no);
+            logger.log('- MO reference: ' + mo);
             logger.log('- Quantity printed on label: ' + arnData.quantity);
             logger.log('- Purchase Order: ' + arnData.purchase_order);
         } else {
@@ -139,20 +141,19 @@ app.post('/submit-data', async (req, res) => {
         const yyww = getWWYY.getWWYY();
 
         if (isArnLabel) {
-            // Sequence is scoped to MO. Every distinct Excel row (therefore
-            // every newly assigned MO) begins at 1; later labels for the same
-            // MO increment after a successful prior print.
+            // Sequence is scoped to Manufacturer Part No. A new part starts
+            // at 1; later labels for that part increment after a successful print.
             await connection.execute(
-                'INSERT INTO arn_label_sequence (MO, last_item_no) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
-                [mo]
+                'INSERT INTO arn_label_part_sequence (manufacturer_part_no, last_item_no) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
+                [manufacturerPartNumber]
             );
             const [sequenceRows] = await connection.execute(
-                'SELECT last_item_no FROM arn_label_sequence WHERE MO = ? FOR UPDATE',
-                [mo]
+                'SELECT last_item_no FROM arn_label_part_sequence WHERE manufacturer_part_no = ? FOR UPDATE',
+                [manufacturerPartNumber]
             );
             const itemNo = Number(sequenceRows[0].last_item_no);
-            if (!Number.isSafeInteger(itemNo) || itemNo < 0) {
-                throw new Error('Invalid ARN sequence value for MO ' + mo);
+            if (!Number.isSafeInteger(itemNo) || itemNo < 1) {
+                throw new Error('Invalid ARN sequence value for Manufacturer Part No. ' + manufacturerPartNumber);
             }
 
             const arnReference = yyww + '-' + itemNo.toString().padStart(6, '0');
