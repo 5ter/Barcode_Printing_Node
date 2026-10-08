@@ -28,6 +28,7 @@ const arnLabelSettings = require('./config/arnLabelSetting');
 // --- Main Route: Handle Standard or ARN label submissions transactionally ---
 app.post('/submit-data', async (req, res) => {
     let connection;
+    let transactionOpen = false;
     try {
         const { MO, ActID, ManufacturerPartNo, printerUrl_id, labelMode } = req.body;
         const selectedLabelMode = typeof labelMode === 'string' ? labelMode.trim().toUpperCase() : '';
@@ -68,6 +69,7 @@ app.post('/submit-data', async (req, res) => {
 
         connection = await db.getConnection();
         await connection.beginTransaction();
+        transactionOpen = true;
 
         let arnData;
         let productCode;
@@ -85,6 +87,7 @@ app.post('/submit-data', async (req, res) => {
             );
             if (arnRows.length === 0) {
                 await connection.rollback();
+                transactionOpen = false;
                 return res.status(404).json({
                     status: 'error',
                     message: 'No ARN Excel row matches that Manufacturer Part No. Check the part number and upload the current workbook.'
@@ -99,6 +102,7 @@ app.post('/submit-data', async (req, res) => {
             if (rowsRef.length === 0) {
                 logger.log('No product found for the given Actmax_ID.');
                 await connection.rollback();
+                transactionOpen = false;
                 return res.status(404).json({
                     status: 'error',
                     message: 'No product configuration found for the given Actmax_ID.'
@@ -131,6 +135,7 @@ app.post('/submit-data', async (req, res) => {
         if (!printerConfig) {
             logger.error('Printer configuration for ID ' + printerId + ' not found.');
             await connection.rollback();
+            transactionOpen = false;
             return res.status(500).json({
                 status: 'error',
                 message: 'Printer configuration for ID ' + printerId + ' is missing. Please check settings.'
@@ -168,8 +173,8 @@ app.post('/submit-data', async (req, res) => {
                 madeInText: arnLabelSettings.MADE_IN_TEXT
             });
 
-            await connection.execute(
-                'INSERT INTO arn_label_print_history (mo, arn_part_no, quantity, manufacturer_part_no, purchase_order, date_code, item_no, label_content, printer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            const [historyInsert] = await connection.execute(
+                'INSERT INTO arn_label_print_history (mo, arn_part_no, quantity, manufacturer_part_no, purchase_order, date_code, item_no, label_content, printer_id, label_payload, print_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     mo,
                     arnData.arn_part_no,
@@ -179,14 +184,45 @@ app.post('/submit-data', async (req, res) => {
                     yyww,
                     itemNo,
                     arnReference,
-                    printerId
+                    printerId,
+                    arnPayload,
+                    'PENDING'
                 ]
             );
 
-            // Exactly one ARN label is sent. Quantity is label data, not copies.
-            await printLabel_arn(arnPayload, printerConfig.IP, printerConfig.PORT);
+            // Save the reserved reference and exact SBPL before sending. A
+            // retry reuses this job and does not allocate another item number.
             await connection.commit();
-            logger.log('Single ARN label printed and transaction committed successfully.');
+            transactionOpen = false;
+
+            const printHistoryId = String(historyInsert.insertId);
+            try {
+                // Exactly one ARN label is sent. Quantity is label data, not copies.
+                await printLabel_arn(arnPayload, printerConfig.IP, printerConfig.PORT);
+                await connection.execute(
+                    'UPDATE arn_label_print_history SET print_status = ?, last_error = NULL WHERE id = ?',
+                    ['SENT', printHistoryId]
+                );
+                logger.log('ARN label payload sent for reference ' + arnReference + '.');
+            } catch (printError) {
+                logger.error('ARN print attempt failed for reference ' + arnReference + ': ' + printError.message);
+                try {
+                    await connection.execute(
+                        'UPDATE arn_label_print_history SET print_status = ?, last_error = ? WHERE id = ?',
+                        ['FAILED', String(printError.message || printError).slice(0, 4000), printHistoryId]
+                    );
+                } catch (statusError) {
+                    logger.error('Could not update ARN print status for history ID ' + printHistoryId + ': ' + statusError.message);
+                }
+                return res.status(502).json({
+                    status: 'error',
+                    message: 'The printer send did not complete successfully. After correcting the printer, retry the saved label with the same reference.',
+                    printHistoryId,
+                    labelReference: arnReference,
+                    arnPartNo: arnData.arn_part_no,
+                    retryAvailable: true
+                });
+            }
 
             return res.status(200).json({
                 status: 'success',
@@ -196,7 +232,9 @@ app.post('/submit-data', async (req, res) => {
                 arnPartNo: arnData.arn_part_no,
                 quantity: arnData.quantity,
                 manufacturerPartNo: arnData.manufacturer_part_no,
-                purchaseOrder: arnData.purchase_order
+                purchaseOrder: arnData.purchase_order,
+                printHistoryId,
+                retryAvailable: true
             });
         }
 
@@ -231,6 +269,7 @@ app.post('/submit-data', async (req, res) => {
         logger.log('Data for both Standard labels inserted successfully into transaction.');
         await printLabel_two(label_Con, label_Con_2, printerConfig.IP, printerConfig.PORT);
         await connection.commit();
+        transactionOpen = false;
         logger.log('Database transaction committed successfully.');
 
         return res.status(200).json({
@@ -241,8 +280,9 @@ app.post('/submit-data', async (req, res) => {
             customerID
         });
     } catch (error) {
-        if (connection) {
+        if (connection && transactionOpen) {
             await connection.rollback();
+            transactionOpen = false;
             logger.log('Database transaction rolled back.');
         }
         logger.error('Error processing data:', error);
@@ -255,6 +295,120 @@ app.post('/submit-data', async (req, res) => {
             connection.release();
             logger.log('Database connection released.');
         }
+    }
+});
+
+// Re-send the exact saved ARN payload without touching its part sequence.
+app.post('/retry-arn-print', async (req, res) => {
+    let connection;
+    let transactionOpen = false;
+    let retryHistoryId = '';
+    let retryReference = '';
+    try {
+        retryHistoryId = String(req.body && req.body.printHistoryId || '').trim();
+        if (!/^[1-9][0-9]*$/.test(retryHistoryId)) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'A valid ARN print history ID is required.'
+            });
+        }
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+        transactionOpen = true;
+
+        const [historyRows] = await connection.execute(
+            'SELECT id, label_content, label_payload, printer_id, arn_part_no FROM arn_label_print_history WHERE id = ? FOR UPDATE',
+            [retryHistoryId]
+        );
+        if (historyRows.length === 0) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(404).json({
+                status: 'error',
+                message: 'The ARN print record was not found.'
+            });
+        }
+
+        const job = historyRows[0];
+        retryReference = String(job.label_content);
+        if (!job.label_payload) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({
+                status: 'error',
+                message: 'This older ARN print has no saved printer payload and cannot be retried exactly.'
+            });
+        }
+
+        const printerConfig = config.getPrinterConfig(job.printer_id);
+        if (!printerConfig) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(500).json({
+                status: 'error',
+                message: 'The original printer configuration is missing. The label reference has not changed.',
+                printHistoryId: retryHistoryId,
+                labelReference: retryReference,
+                retryAvailable: true
+            });
+        }
+
+        await connection.execute(
+            'UPDATE arn_label_print_history SET retry_count = retry_count + 1, last_retry_at = CURRENT_TIMESTAMP, print_status = ?, last_error = NULL WHERE id = ?',
+            ['PENDING', retryHistoryId]
+        );
+
+        try {
+            await printLabel_arn(job.label_payload, printerConfig.IP, printerConfig.PORT);
+        } catch (printError) {
+            await connection.execute(
+                'UPDATE arn_label_print_history SET print_status = ?, last_error = ? WHERE id = ?',
+                ['FAILED', String(printError.message || printError).slice(0, 4000), retryHistoryId]
+            );
+            await connection.commit();
+            transactionOpen = false;
+            logger.error('ARN retry failed for reference ' + retryReference + ': ' + printError.message);
+            return res.status(502).json({
+                status: 'error',
+                message: 'Retry failed. The same ARN reference is still available to retry.',
+                printHistoryId: retryHistoryId,
+                labelReference: retryReference,
+                arnPartNo: job.arn_part_no,
+                retryAvailable: true
+            });
+        }
+
+        await connection.execute(
+            'UPDATE arn_label_print_history SET print_status = ?, last_error = NULL WHERE id = ?',
+            ['SENT', retryHistoryId]
+        );
+        await connection.commit();
+        transactionOpen = false;
+        logger.log('ARN reference ' + retryReference + ' resent without incrementing its part sequence.');
+
+        return res.status(200).json({
+            status: 'success',
+            message: retryReference,
+            printHistoryId: retryHistoryId,
+            arnPartNo: job.arn_part_no,
+            retryAvailable: true
+        });
+    } catch (error) {
+        if (connection && transactionOpen) {
+            await connection.rollback();
+            transactionOpen = false;
+        }
+        logger.error('Error retrying ARN print:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Could not retry the saved ARN label: ' + error.message,
+            printHistoryId: retryHistoryId || undefined,
+            labelReference: retryReference || undefined,
+            retryAvailable: Boolean(retryHistoryId && retryReference)
+        });
+    } finally {
+        if (connection) connection.release();
     }
 });
 

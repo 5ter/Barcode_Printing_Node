@@ -97,7 +97,7 @@
 
                     <section id="arnPanel" role="tabpanel" aria-labelledby="arnTab" hidden>
                         <form id="arnForm" class="needs-validation" novalidate>
-                            <p class="form-text mb-3">Enter the MO for print history and the Manufacturer Part No. from the ARN Excel row. ARN Part No., Quantity and PO are looked up by Manufacturer Part No. Each submission prints one label; Quantity is printed on the label, not used as the number of copies.</p>
+                            <p class="form-text mb-3">Enter the MO for print history and the Manufacturer Part No. from the ARN Excel row. ARN Part No., Quantity and PO are looked up by Manufacturer Part No. Each submission sends one label; Quantity is printed on the label, not used as the number of copies. After correcting a print-quality or media issue, retry the same reference below.</p>
                             <div class="mb-3">
                                 <label for="ARN_MO" class="form-label fw-medium">MO :</label>
                                 <input type="text" id="ARN_MO" name="MO" required
@@ -121,6 +121,9 @@
                             <button type="submit" class="btn btn-primary btn-extra-large w-100 shadow-sm">
                                 Print ARN Label
                             </button>
+                            <button type="button" id="retryArnPrint" class="btn btn-outline-warning w-100 mt-3" hidden>
+                                Retry same ARN reference
+                            </button>
                         </form>
                     </section>
                 </div>
@@ -134,4 +137,4 @@
     </div>
 
     <!-- Bootstrap 5 JavaScript Bundle (Popper included) -->
-    <script src="ajax.js?v=arn-excel-mo-3"></script>
+    <script src="ajax.js?v=arn-retry-1"></script>

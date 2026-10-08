@@ -27,12 +27,12 @@ const settings = {
             PORT: process.env.PRINTER_C_PORT || 9100,
             NAME: 'Secondary Line C'
         },
-        // Add more printers here (e.g., 'PRINTER_C', 'PRINTER_D')
+        // ARN Label Printer
         'PRINTER_D': {
-            // Secondary production printer
+            // ARN Label Printer
             IP: process.env.PRINTER_D_IP || '192.168.5.43',
             PORT: process.env.PRINTER_D_PORT || 9100,
-            NAME: 'Secondary Line D'
+            NAME: 'ARN Label Printer'
         },
     },
 
