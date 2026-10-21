@@ -146,15 +146,15 @@ app.post('/submit-data', async (req, res) => {
         const yyww = getWWYY.getWWYY();
 
         if (isArnLabel) {
-            // Sequence is scoped to Manufacturer Part No. A new part starts
-            // at 1; later labels for that part increment after a successful print.
+            // Match Standard's weekly reset behavior: each Manufacturer Part
+            // No. gets its own sequence within each YYWW work week.
             await connection.execute(
-                'INSERT INTO arn_label_part_sequence (manufacturer_part_no, last_item_no) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
-                [manufacturerPartNumber]
+                'INSERT INTO arn_label_weekly_sequence (manufacturer_part_no, date_code, last_item_no) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
+                [manufacturerPartNumber, yyww]
             );
             const [sequenceRows] = await connection.execute(
-                'SELECT last_item_no FROM arn_label_part_sequence WHERE manufacturer_part_no = ? FOR UPDATE',
-                [manufacturerPartNumber]
+                'SELECT last_item_no FROM arn_label_weekly_sequence WHERE manufacturer_part_no = ? AND date_code = ? FOR UPDATE',
+                [manufacturerPartNumber, yyww]
             );
             const itemNo = Number(sequenceRows[0].last_item_no);
             if (!Number.isSafeInteger(itemNo) || itemNo < 1) {
