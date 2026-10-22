@@ -21,3 +21,7 @@ npm-debug.log*
 /.nyc_output/
 /test-results/
 /playwright-report/
+
+step 1 page/
+step 2 page/
+excel uploader page/

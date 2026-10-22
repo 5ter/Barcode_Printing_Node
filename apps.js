@@ -18,6 +18,8 @@ app.use(express.json());
 // --- Routes ---
 const barcodeRoutes = require('./routes/barcode');
 app.use(barcodeRoutes);
+const arnTraceabilityRoutes = require('./routes/arnTraceability');
+app.use('/arn', arnTraceabilityRoutes);
 
 // --- Utility Functions Imports ---
 const getWWYY = require('./utils/dateTime'); 
@@ -51,6 +53,12 @@ app.post('/submit-data', async (req, res) => {
         }
 
         const isArnLabel = selectedLabelMode === 'ARN';
+        if (isArnLabel) {
+            return res.status(409).json({
+                status: 'error',
+                message: 'ARN labels are now printed from a locked carton after product scans reach the carton quantity. Open the ARN carton workflow.'
+            });
+        }
         const mo = String(MO || '').trim();
         const manufacturerPartNumber = String(ManufacturerPartNo || '').trim();
 

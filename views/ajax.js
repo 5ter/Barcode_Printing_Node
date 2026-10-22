@@ -1,12 +1,34 @@
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const printerId = urlParams.get('Printer');
+    const printerId = String(urlParams.get('Printer') || 'A').toUpperCase().replace(/^PRINTER_/, '');
+    const printerSelect = document.getElementById('printerSelect');
     const message = document.getElementById('message');
     const tabs = Array.from(document.querySelectorAll('[data-label-tab]'));
     const panels = {
         standard: document.getElementById('standardPanel'),
         arn: document.getElementById('arnPanel')
     };
+
+    if (printerSelect) {
+        printerSelect.value = /^[ABCD]$/.test(printerId) ? printerId : 'A';
+        printerSelect.addEventListener('change', () => {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set('Printer', printerSelect.value);
+            window.location.assign(nextUrl.pathname + nextUrl.search);
+        });
+    }
+
+    const excelUploaderLink = document.getElementById('excelUploaderLink');
+    if (excelUploaderLink) {
+        const uploaderUrl = new URL(window.location.href);
+        uploaderUrl.port = excelUploaderLink.dataset.uploaderPort || '3005';
+        uploaderUrl.pathname = '/';
+        uploaderUrl.search = '';
+        uploaderUrl.hash = '';
+        uploaderUrl.searchParams.set('Printer', /^[ABCD]$/.test(printerId) ? printerId : 'A');
+        uploaderUrl.searchParams.set('MainPort', window.location.port || '3003');
+        excelUploaderLink.href = uploaderUrl.toString();
+    }
 
     function focusNextInput(form) {
         const mo = form.elements.MO;
@@ -34,7 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     tabs.forEach((tab) => {
-        tab.addEventListener('click', () => showTab(tab.dataset.labelTab));
+        tab.addEventListener('click', () => {
+            if (tab.dataset.labelTab === 'arn') {
+                window.location.assign('/arn/setup?Printer=' + encodeURIComponent(printerId));
+                return;
+            }
+            showTab(tab.dataset.labelTab);
+        });
     });
 
     const standardForm = document.getElementById('dataForm');

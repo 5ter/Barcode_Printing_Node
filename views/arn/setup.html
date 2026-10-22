@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>ARN Carton Setup | ACTMAX</title>
+    <link rel="stylesheet" href="/css/arn-workflow.css">
+</head>
+<body data-arn-page="setup">
+    <header class="arn-header">
+        <div class="arn-brand">ACTMAX <span aria-hidden="true">&gt;&gt;</span><small>Traceability System</small></div>
+        <div class="arn-header-controls">
+            <a href="/?Printer=A" id="standardLink" class="arn-button arn-button-secondary">Standard Label</a>
+            <a href="http://localhost:3005/?Printer=A&amp;MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
+            <label for="printerSelect">Printer</label>
+            <select id="printerSelect" aria-label="Select ARN printer">
+                <option value="A">Printer A</option>
+                <option value="B">Printer B</option>
+                <option value="C">Printer C</option>
+                <option value="D">Printer D</option>
+            </select>
+        </div>
+    </header>
+    <main class="arn-main">
+        <nav class="arn-stepper" aria-label="ARN workflow steps">
+            <div class="arn-step active"><span class="arn-step-number">01</span><span>Carton Setup &amp; ARN</span></div>
+            <span class="arn-step-line" aria-hidden="true"></span>
+            <div class="arn-step"><span class="arn-step-number">02</span><span>Unit Serial Tracing</span></div>
+        </nav>
+        <h1 class="arn-page-heading">Carton Setup &amp; ARN Label</h1>
+        <p class="arn-lede">Enter the MO and Manufacturer Part No. once. Excel supplies the ARN label details and carton capacity; the active job is saved separately for each selected printer.</p>
+        <div id="setupAlert" class="arn-alert" role="status"></div>
+        <div class="arn-layout">
+            <section class="arn-card">
+                <div class="arn-card-title">
+                    <h2>Lock Work Order &amp; Part</h2>
+                    <span class="arn-kicker">Step 01 / Initialization</span>
+                </div>
+                <div class="arn-directive"><strong>Operator instructions</strong>Scan or enter the MO and Manufacturer Part No. The matching ARN Part No., PO, and QTY are loaded from the uploaded ARN workbook. QTY is the maximum units in each carton.</div>
+                <form id="arnLockForm" autocomplete="off">
+                    <div class="arn-form-grid">
+                        <div class="arn-field">
+                            <label for="moInput">Manufacturing Order (MO)</label>
+                            <input id="moInput" name="mo" type="text" required maxlength="100" placeholder="Enter or scan MO">
+                        </div>
+                        <div class="arn-field">
+                            <label for="mpnInput">Manufacturer Part No. (MPN)</label>
+                            <input id="mpnInput" name="manufacturerPartNo" type="text" required maxlength="255" placeholder="Enter or scan Mfr Part No.">
+                        </div>
+                    </div>
+                    <div class="arn-metadata">
+                        <div class="arn-row" style="margin-bottom:12px">
+                            <h3>Auto-resolved ARN label data</h3>
+                            <span id="lookupBadge" class="arn-badge">Waiting for part</span>
+                        </div>
+                        <div class="arn-metadata-grid">
+                            <div class="arn-meta-cell"><span class="arn-meta-label">ARN Part No.</span><span class="arn-meta-value" id="arnPartNo">—</span></div>
+                            <div class="arn-meta-cell"><span class="arn-meta-label">Purchase Order</span><span class="arn-meta-value" id="purchaseOrder">—</span></div>
+                            <div class="arn-meta-cell"><span class="arn-meta-label">QTY / Carton Capacity</span><span class="arn-meta-value" id="boxCapacity">—</span></div>
+                            <div class="arn-meta-cell"><span class="arn-meta-label">Date Code</span><span class="arn-meta-value" id="dateCode">Generated at print</span></div>
+                        </div>
+                        <p class="arn-help" style="margin-top:11px">The Mfr reference is allocated only when a carton is sealed and its ARN label is printed.</p>
+                    </div>
+                    <button class="arn-button arn-button-primary arn-button-block" id="lockButton" type="submit">Lock Active Carton &amp; Continue to Scanning</button>
+                </form>
+                <p class="arn-notice">The lock survives page refreshes and is isolated by printer. A different MO/part cannot replace an active lock until its current carton is sealed.</p>
+                <div id="activeLockCard" class="arn-lock-card">
+                    <div class="arn-row">
+                        <div><strong id="activeLockText"></strong><div class="arn-help" id="activeCartonText" style="margin-top:5px"></div></div>
+                        <a id="resumeLink" class="arn-button arn-button-primary" href="/arn/scan?Printer=A">Resume scanning</a>
+                    </div>
+                </div>
+            </section>
+            <aside class="arn-card">
+                <div class="arn-card-title"><h2>Workflow at this station</h2><span class="arn-badge">Printer <span id="activePrinterName">A</span></span></div>
+                <ol style="padding-left:22px;line-height:1.8;margin:0;color:#536177">
+                    <li>Lock the MO and Manufacturer Part No. for this printer.</li>
+                    <li>Scan each product barcode; its content is recorded against the active carton.</li>
+                    <li>At capacity, the ARN label prints automatically. For a final partial carton, use <em>Complete &amp; Seal</em>.</li>
+                    <li>Press <em>Proceed to next carton</em> to keep the same MO/part and start another box.</li>
+                </ol>
+                <p class="arn-notice">A sealed carton is read-only so its saved contents stay consistent with its printed ARN label.</p>
+            </aside>
+        </div>
+    </main>
+    <footer class="arn-footer">ACTMAX Industrial Traceability Platform · ARN Carton Workflow</footer>
+    <script src="/arn/workflow.js" defer></script>
+</body>
+</html>

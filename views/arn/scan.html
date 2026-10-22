@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>ARN Unit Tracing | ACTMAX</title>
+    <link rel="stylesheet" href="/css/arn-workflow.css">
+</head>
+<body data-arn-page="scan">
+    <header class="arn-header">
+        <div class="arn-brand">ACTMAX <span aria-hidden="true">&gt;&gt;</span><small>Traceability System</small></div>
+        <div class="arn-header-controls">
+            <a href="/arn/setup?Printer=A" id="setupLink" class="arn-button arn-button-secondary">Carton Setup</a>
+            <a href="http://localhost:3005/?Printer=A&amp;MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
+            <label for="printerSelect">Printer</label>
+            <select id="printerSelect" aria-label="Select ARN printer">
+                <option value="A">Printer A</option>
+                <option value="B">Printer B</option>
+                <option value="C">Printer C</option>
+                <option value="D">Printer D</option>
+            </select>
+        </div>
+    </header>
+    <main class="arn-main">
+        <nav class="arn-stepper" aria-label="ARN workflow steps">
+            <div class="arn-step done"><span class="arn-step-number">✓</span><span>Carton Setup &amp; ARN</span></div>
+            <span class="arn-step-line" aria-hidden="true"></span>
+            <div class="arn-step active"><span class="arn-step-number">02</span><span>Unit Serial Tracing</span></div>
+        </nav>
+        <div id="scanAlert" class="arn-alert" role="status"></div>
+        <section class="arn-card">
+            <div class="arn-layout" style="grid-template-columns:minmax(0,1.3fr) minmax(240px,.7fr);align-items:center">
+                <div>
+                    <div class="arn-kicker">Active carton lock</div>
+                    <h1 class="arn-page-heading" style="margin-top:5px" id="cartonDisplay">Loading…</h1>
+                    <div class="arn-form-grid" style="margin-top:14px">
+                        <div class="arn-meta-cell"><span class="arn-meta-label">MO</span><span class="arn-meta-value" id="lockedMo">—</span></div>
+                        <div class="arn-meta-cell"><span class="arn-meta-label">Manufacturer Part No.</span><span class="arn-meta-value" id="lockedMpn">—</span></div>
+                        <div class="arn-meta-cell"><span class="arn-meta-label">ARN Part No.</span><span class="arn-meta-value" id="lockedArnPart">—</span></div>
+                        <div class="arn-meta-cell"><span class="arn-meta-label">Printer / PO</span><span class="arn-meta-value" id="lockedPrinterPo">—</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="arn-progress-head"><span id="progressText" class="arn-progress-number">0 / 0</span><span id="progressPercent">0%</span></div>
+                    <div class="arn-progress-track"><div id="progressBar" class="arn-progress-bar"></div></div>
+                    <div id="remainingText" class="arn-help">Loading carton status…</div>
+                    <span id="cartonStatus" class="arn-badge" style="margin-top:9px">Loading</span>
+                </div>
+            </div>
+        </section>
+        <div class="arn-scan-grid">
+            <section class="arn-card">
+                <div class="arn-card-title"><div><h2>Serial Tracing Station</h2><p class="arn-help" style="margin-top:5px">Scan the product label as printed. The raw scan is saved; the app does not parse its format.</p></div><span id="scannerBadge" class="arn-badge">Ready</span></div>
+                <form id="scanForm" class="arn-scan-form" autocomplete="off">
+                    <div class="arn-field"><label for="barcodeInput">Scan Product Barcode</label><input id="barcodeInput" class="arn-scan-input" type="text" maxlength="2000" placeholder="Scan barcode, then press Enter" autofocus></div>
+                    <button id="scanButton" class="arn-button arn-button-primary arn-button-block" type="submit">Record Product Scan</button>
+                </form>
+                <div class="arn-actions">
+                    <button id="completeButton" class="arn-button arn-button-secondary" type="button">Complete &amp; Seal Carton</button>
+                    <button id="retryButton" class="arn-button arn-button-secondary arn-hidden" type="button">Retry ARN Label</button>
+                </div>
+                <div class="arn-actions">
+                    <button id="nextCartonButton" class="arn-button arn-button-primary arn-hidden" type="button">Proceed to Next Carton</button>
+                    <button id="unlockButton" class="arn-button arn-button-danger arn-hidden" type="button">Finish MO / Change Part</button>
+                </div>
+                <p id="actionHelp" class="arn-notice">A full carton prints automatically. Partial cartons print only after you press Complete &amp; Seal.</p>
+            </section>
+            <section class="arn-card">
+                <div class="arn-card-title"><div><h2>Current Box Contents</h2><p id="scanListSubheading" class="arn-help" style="margin-top:5px">No scans recorded.</p></div><span id="scanCountBadge" class="arn-badge">0 units</span></div>
+                <div id="scannedSerialList" class="arn-scan-list" aria-live="polite"><div class="arn-scan-empty">Loading saved scans…</div></div>
+            </section>
+        </div>
+    </main>
+    <footer class="arn-footer">Scans are retained for carton traceability. Sealed carton contents cannot be edited from this station.</footer>
+    <script src="/arn/workflow.js" defer></script>
+</body>
+</html>

@@ -9,6 +9,8 @@ const db = require('./db/root');
 
 const app = express();
 const port = process.env.PORT || 3005;
+const mainAppPort = Number(process.env.MAIN_APP_PORT) || 3003;
+const uploaderPagePath = path.join(__dirname, 'excel uploader page', 'code.html');
 
 // --- Configuration ---
 // --- NEW: Import the custom logger utility ---
@@ -44,12 +46,6 @@ const ARN_DB_COLUMNS = [
 
 // --- Utility Functions ---
 
-// Generates the human-readable list of required headers for the HTML
-function getRequiredHeadersMessage() {
-    return `<p class="mb-1"><strong>Standard:</strong> Product Name, Product Code, Manufacturing ID, Customer ID, Actmax ID</p>
-            <p class="mb-1"><strong>ARN:</strong> ARN PartNo, Quantity, Manufacturer PartNo, Purchase Order</p>`;
-}
-
 function normalizeHeader(value) {
     return String(value || '')
         .toLowerCase()
@@ -83,83 +79,38 @@ function escapeHtml(value) {
 // Serve static files (like CSS) from the 'css' directory
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/image', express.static(path.join(__dirname, 'image')));
-// 1. Serve the simple HTML upload form (NOW DYNAMICALLY RENDERED WITH BOOTSTRAP)
-app.get('/', (req, res) => {
-  // Generate the required headers list dynamically
-  const requiredHeaders = getRequiredHeadersMessage();
+// Serve the supplied redesign and replace its prototype-only interactions with
+// the real workbook upload client. The existing /upload parser stays unchanged.
+app.get('/', (req, res, next) => {
+    fs.readFile(uploaderPagePath, 'utf8', (error, sourceHtml) => {
+        if (error) return next(error);
 
-  // Send the HTML content using a template literal
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Excel Uploader</title>
-      <!-- Bootstrap CSS -->
-      <link href="css/bootstrap.min.css" rel="stylesheet"> 
-      <style>
-        body {
-          font-family: 'Inter', sans-serif;
-          background-color: #f8f9fa; /* Light background */
-        }
-        .upload-card {
-          max-width: 600px;
-          width: 100%;
-        }
-        #labelLogo { 
-            /* Set a fixed size for the logo next to the title */
-            width: 40px; /* Updated size */
-            height: 40px; /* Updated size */
-            border-radius: 0px; 
-            object-fit: contain;
-        }
-      </style>
-    </head>
-    <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-      <div class="card upload-card shadow-lg border-0 rounded-3">
-        <div class="card-body p-5">
+        const requestedMainPort = Number(req.query.MainPort);
+        const pageMainPort = Number.isInteger(requestedMainPort) && requestedMainPort > 0 && requestedMainPort <= 65535
+            ? requestedMainPort
+            : mainAppPort;
+        const html = sourceHtml
+            // The mock script displayed fake commits and sample operator data.
+            .replace(/<script>\s*\/\/ UI Micro-interactions[\s\S]*?<\/script>/i, '')
+            .replace(/<body\b/i, '<body data-main-app-port="' + pageMainPort + '"')
+            .replace('</body>', '<script src="/excel-uploader.js" defer></script></body>');
 
-            <div class="d-flex align-items-center justify-content-center mb-4"> 
-        <!--<img id="labelLogo" src="image/actmax_logo.webp" alt="Label Logo" class="me-3">-->     
-            <img id="labelLogo" src="image/actmax_logo.webp" alt="Label Logo" class="me-2">
-            <h1 class="h1 text-dark text-start mb-0">Upload Excel to DB </h1>
-        </div>
-             <p class="text-muted text-center mb-4">
-            Select an Excel file (\`.xlsx\` or \`.xls\`) to import.
-          </p>
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.type('html').send(html);
+    });
+});
 
-          <form action="/upload" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
-            <div class="mb-3">
-              <label for="excelFile" class="form-label">Choose File (Max 1MB)</label>
-              <input 
-                type="file" 
-                name="excelFile" 
-                id="excelFile" 
-                accept=".xlsx, .xls" 
-                required
-                class="form-control"
-              >
-            </div>
-            <button 
-              type="submit"
-              class="btn btn-primary w-100 py-2 shadow-sm"
-            >
-              Upload and Import Data
-            </button>
-          </form>
+app.get('/excel-uploader.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'excelUploader.js'));
+});
 
-          <div class="alert alert-danger mt-4" role="alert">
-            <h6 class="alert-heading mb-2">Required Excel Headers (in the first row):</h6>
-            <small class="text-danger">Upload either a Standard workbook or an ARN workbook. Header matching ignores capitalization and punctuation.</small>
-            <div class="mt-2 text-dark">${requiredHeaders}</div>
-            <p class="small text-muted mt-2 mb-0">ARN Manufacturer PartNo is unique. Re-uploading it updates the current label data; each successful print keeps its own MO and data snapshot in print history.</p>
-          </div>
-        </div>
-      </div>
-      <!-- Bootstrap JS bundle (optional, but needed for proper component handling) -->
-   
-    </body>
-    </html>
-`);
+app.get('/templates/standard', (req, res) => {
+    res.download(path.join(__dirname, 'Product_Code-Template.xlsx'));
+});
+
+app.get('/templates/arn', (req, res) => {
+    res.download(path.join(__dirname, 'ARN_Template.xlsx'));
 });
 
 // 2. Handle workbook uploads. Standard rows keep the legacy UPSERT; ARN rows

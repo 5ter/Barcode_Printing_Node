@@ -56,7 +56,24 @@
     <img id="labelLogo" src="image/actmax_logo.webp" alt="Label Logo" 
          class="order-1" style="margin-top: -10px; width: 25px; height: auto;"> 
 </div>
-                                
+
+                <nav class="mb-3 text-end" aria-label="Application navigation">
+                    <a id="excelUploaderLink" data-uploader-port="3005"
+                       class="btn btn-outline-primary btn-sm" href="http://localhost:3005/?Printer=A&amp;MainPort=3003">
+                        Upload Excel
+                    </a>
+                </nav>
+
+                <div class="mb-3">
+                    <label for="printerSelect" class="form-label fw-medium">Selected printer :</label>
+                    <select id="printerSelect" class="form-select" aria-label="Select printer A through D">
+                        <option value="A">Printer A</option>
+                        <option value="B">Printer B</option>
+                        <option value="C">Printer C</option>
+                        <option value="D">Printer D</option>
+                    </select>
+                </div>
+
                 <div class="nav nav-tabs" role="tablist" aria-label="Label type">
                     <button class="nav-link active" id="standardTab" type="button"
                             role="tab" aria-selected="true" aria-controls="standardPanel"
