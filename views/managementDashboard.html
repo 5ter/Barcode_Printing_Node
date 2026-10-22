@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>Label Traceability Dashboard | ACTMAX</title>
+  <link rel="stylesheet" href="/dashboard-assets/dashboard.css">
+  <script src="/dashboard-assets/dashboard.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="ACTMAX label printing home">
+      <span class="brand-name">ACTMAX <span>&gt;&gt;</span></span>
+      <span class="brand-caption">TRACEABILITY SYSTEM</span>
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="/">Label Printing</a>
+      <a class="active" href="/dashboard" aria-current="page">Dashboard</a>
+    </nav>
+    <div class="topbar-meta"><span class="online-dot"></span> Read-only audit view</div>
+  </header>
+
+  <main>
+    <section class="page-heading">
+      <div class="breadcrumb">Traceability <span>/</span> Audits <span>/</span> <strong>Label history</strong></div>
+      <div class="heading-row">
+        <div>
+          <p class="eyebrow">MANAGEMENT REPORTING</p>
+          <h1>Carton Traceability &amp; Label Audit</h1>
+          <p class="subheading">Review ARN carton labels, their scanned product contents, and Standard product labels.</p>
+        </div>
+        <div class="heading-actions">
+          <span class="updated" id="last-updated">Not loaded yet</span>
+          <button class="button secondary" id="refresh-button" type="button">↻ <span>Refresh</span></button>
+          <button class="button secondary" id="export-csv-button" type="button">⇩ <span>CSV</span></button>
+          <button class="button primary" id="export-excel-button" type="button">▦ <span>Export filtered Excel</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-wrap">
+      <div class="stats-grid" aria-label="Matching record totals">
+        <article class="stat-card">
+          <div class="stat-label">ARN CARTON LABEL JOBS <span aria-hidden="true">▣</span></div>
+          <div class="stat-value" id="stat-cartons">—</div>
+          <div class="stat-note"><span id="stat-cartons-sent">—</span> sent successfully</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">STANDARD PRODUCT LABELS <span aria-hidden="true">▤</span></div>
+          <div class="stat-value" id="stat-standard">—</div>
+          <div class="stat-note">Generated product-label records</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">ARN PRODUCT SCAN EVENTS <span aria-hidden="true">⌗</span></div>
+          <div class="stat-value" id="stat-scans">—</div>
+          <div class="stat-note">Includes removed scans, marked in the product view</div>
+        </article>
+        <article class="stat-card stat-alert">
+          <div class="stat-label">FAILED ARN PRINTS <span aria-hidden="true">!</span></div>
+          <div class="stat-value" id="stat-failed">—</div>
+          <div class="stat-note">Failed attempts remain visible for audit</div>
+        </article>
+      </div>
+
+      <section class="filter-card" aria-labelledby="filter-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">RECORD SEARCH</p>
+            <h2 id="filter-title">Filter the audit history</h2>
+          </div>
+          <button class="text-button" id="reset-button" type="button">Reset filters</button>
+        </div>
+        <form id="filter-form">
+          <div class="filter-grid">
+            <label class="field">
+              <span>Date from</span>
+              <input id="start-date" name="startDate" type="date" required>
+            </label>
+            <label class="field">
+              <span>Date to</span>
+              <input id="end-date" name="endDate" type="date" required>
+            </label>
+            <label class="field">
+              <span>Manufacturing order (MO)</span>
+              <input id="mo-filter" name="mo" type="search" maxlength="100" placeholder="Any MO">
+            </label>
+            <label class="field">
+              <span>Part number</span>
+              <input id="part-filter" name="part" type="search" maxlength="255" placeholder="ARN, manufacturer, or customer part">
+            </label>
+            <label class="field">
+              <span>Printer</span>
+              <select id="printer-filter" name="printer">
+                <option value="">All printers</option>
+                <option value="PRINTER_A">Printer A</option>
+                <option value="PRINTER_B">Printer B</option>
+                <option value="PRINTER_C">Printer C</option>
+                <option value="PRINTER_D">Printer D</option>
+              </select>
+            </label>
+            <label class="field field-search">
+              <span>Label, serial, PO, or other text</span>
+              <input id="search-filter" name="search" type="search" maxlength="255" placeholder="Search label content, PO, printer, MO…">
+            </label>
+          </div>
+          <div class="filter-footer">
+            <p class="filter-help">Dates apply to carton print time, Standard print time, or ARN product scan time.</p>
+            <button class="button apply-button" type="submit">⌕ <span>Apply filters</span></button>
+          </div>
+        </form>
+      </section>
+
+      <section class="results-card" aria-labelledby="results-title">
+        <div class="results-toolbar">
+          <div>
+            <p class="eyebrow">AUDIT RESULTS</p>
+            <h2 id="results-title">Label records</h2>
+          </div>
+          <div class="view-tabs" role="tablist" aria-label="Label record type">
+            <button class="view-tab active" type="button" role="tab" aria-selected="true" data-view="cartons">
+              Carton labels <span id="tab-carton-count">—</span>
+            </button>
+            <button class="view-tab" type="button" role="tab" aria-selected="false" data-view="products">
+              Product records <span id="tab-product-count">—</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-scroll" id="table-scroll">
+          <table>
+            <thead id="table-head"></thead>
+            <tbody id="table-body"><tr><td class="empty-state" colspan="8">Loading label history…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span id="result-range">Loading…</span>
+          <label class="page-size">Rows per page
+            <select id="page-size">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+          <div class="pagination" aria-label="Pagination">
+            <button id="previous-page" type="button" aria-label="Previous page">‹</button>
+            <span id="page-label">Page 1 of 1</span>
+            <button id="next-page" type="button" aria-label="Next page">›</button>
+          </div>
+        </div>
+      </section>
+      <p class="data-note">Standard label records and ARN carton records are read from their existing history tables. ARN scanned-unit records show the raw scanned content; removed scans remain visible and are marked as removed.</p>
+      <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+    </section>
+  </main>
+  <footer class="footer">ACTMAX Industrial Traceability <span>•</span> Management audit view <span>•</span> Read only</footer>
+</body>
+</html>

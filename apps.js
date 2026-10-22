@@ -20,6 +20,9 @@ const barcodeRoutes = require('./routes/barcode');
 app.use(barcodeRoutes);
 const arnTraceabilityRoutes = require('./routes/arnTraceability');
 app.use('/arn', arnTraceabilityRoutes);
+// Read-only management history for Standard product labels and ARN cartons.
+const managementDashboardRoutes = require('./routes/managementDashboard');
+app.use(managementDashboardRoutes);
 
 // --- Utility Functions Imports ---
 const getWWYY = require('./utils/dateTime'); 

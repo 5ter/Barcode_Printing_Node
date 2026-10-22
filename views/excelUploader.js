@@ -30,12 +30,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const scanLink = document.querySelector('[data-path="scan-trace"]');
     const labelLink = document.querySelector('[data-path="label-printing"]');
     const uploadLink = document.querySelector('[data-path="upload-excel"]');
+    const dashboardLink = document.querySelector('[data-path="dashboard"]');
     if (scanLink) scanLink.href = mainAppUrl('/arn/setup');
     if (labelLink) labelLink.href = mainAppUrl('/');
     if (uploadLink) uploadLink.href = '/';
+    if (dashboardLink) dashboardLink.href = mainAppUrl('/dashboard');
 
-    // These routes are planned but not implemented in this app yet.
-    document.querySelectorAll('[data-path="audit-log"], [data-path="dashboard"], [data-path="settings"]')
+    // These routes are not implemented in this app yet.
+    document.querySelectorAll('[data-path="audit-log"], [data-path="settings"]')
         .forEach(link => { link.hidden = true; });
     document.querySelector('a[href="#history-section"]')?.setAttribute('hidden', '');
     document.getElementById('history-section')?.setAttribute('hidden', '');
