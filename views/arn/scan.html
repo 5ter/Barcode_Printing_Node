@@ -11,15 +11,10 @@
     <header class="arn-header">
         <div class="arn-brand">ACTMAX <span aria-hidden="true">&gt;&gt;</span><small>Traceability System</small></div>
         <div class="arn-header-controls">
-            <a href="/arn/setup?Printer=A" id="setupLink" class="arn-button arn-button-secondary">Carton Setup</a>
-            <a href="http://localhost:3005/?Printer=A&amp;MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
-            <label for="printerSelect">Printer</label>
-            <select id="printerSelect" aria-label="Select ARN printer">
-                <option value="A">Printer A</option>
-                <option value="B">Printer B</option>
-                <option value="C">Printer C</option>
-                <option value="D">Printer D</option>
-            </select>
+            <a href="/arn/setup" id="setupLink" class="arn-button arn-button-secondary">Carton Setup</a>
+            <a href="/printer-setup" class="arn-button arn-button-secondary">Printer Setup</a>
+            <a href="http://localhost:3005/?MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
+            <span class="arn-badge">Assigned: <strong id="assignedPrinterName">Loading…</strong></span>
         </div>
     </header>
     <main class="arn-main">

@@ -1,22 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     const page = document.body.dataset.arnPage;
-    const params = new URLSearchParams(window.location.search);
-    const requestedPrinter = String(params.get('Printer') || 'A').toUpperCase().replace(/^PRINTER_/, '');
-    let printer = /^[ABCD]$/.test(requestedPrinter) ? requestedPrinter : 'A';
-    const printerSelect = document.getElementById('printerSelect');
-    if (printerSelect) {
-        printerSelect.value = printer;
-        printerSelect.addEventListener('change', () => {
-            const nextUrl = new URL(window.location.href);
-            nextUrl.searchParams.set('Printer', printerSelect.value);
-            window.location.assign(nextUrl.pathname + nextUrl.search);
-        });
-    }
+    let printer = '';
 
     const standardLink = document.getElementById('standardLink');
-    if (standardLink) standardLink.href = '/?Printer=' + encodeURIComponent(printer);
+    if (standardLink) standardLink.href = '/standard';
     const setupLink = document.getElementById('setupLink');
-    if (setupLink) setupLink.href = '/arn/setup?Printer=' + encodeURIComponent(printer);
+    if (setupLink) setupLink.href = '/arn/setup';
     const excelUploadLink = document.getElementById('excelUploadLink');
     if (excelUploadLink) {
         const uploadUrl = new URL(window.location.href);
@@ -24,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadUrl.pathname = '/';
         uploadUrl.search = '';
         uploadUrl.hash = '';
-        uploadUrl.searchParams.set('Printer', printer);
         uploadUrl.searchParams.set('MainPort', window.location.port || '3003');
         excelUploadLink.href = uploadUrl.toString();
     }
@@ -33,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = { method, headers: {} };
         if (data) {
             options.headers['Content-Type'] = 'application/json';
-            options.body = JSON.stringify({ ...data, printer });
+            options.body = JSON.stringify(data);
         }
         const response = await fetch(path, options);
         const result = await response.json().catch(() => ({}));
@@ -51,8 +39,35 @@ document.addEventListener('DOMContentLoaded', () => {
         element.className = 'arn-alert visible arn-alert-' + kind;
     };
 
-    if (page === 'setup') initializeSetup();
-    if (page === 'scan') initializeScan();
+    async function startWorkflow() {
+        const alert = document.getElementById(page === 'setup' ? 'setupAlert' : 'scanAlert');
+        try {
+            const result = await api('/api/printer-setup/assignments');
+            const assignment = result.assignments && result.assignments.ARN;
+            if (!assignment || !assignment.printerLetter) {
+                throw new Error('No printer is assigned to the ARN workflow. Open Printer Setup to assign one.');
+            }
+            printer = assignment.printerLetter;
+            const assignedName = document.getElementById('assignedPrinterName');
+            if (assignedName) assignedName.textContent = 'Printer ' + printer + ' · ' + assignment.printerName;
+            if (page === 'setup') await initializeSetup();
+            if (page === 'scan') await initializeScan();
+        } catch (error) {
+            if (alert) displayAlert(alert, error.message, 'error');
+            if (page === 'setup') document.getElementById('lockButton').disabled = true;
+            if (page === 'scan') {
+                ['barcodeInput', 'scanButton', 'completeButton', 'retryButton', 'nextCartonButton', 'unlockButton']
+                    .forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) element.disabled = true;
+                    });
+            }
+            const assignedName = document.getElementById('assignedPrinterName');
+            if (assignedName) assignedName.textContent = 'Assignment unavailable';
+        }
+    }
+
+    startWorkflow();
 
     async function initializeSetup() {
         const alert = document.getElementById('setupAlert');
@@ -63,11 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const lockCard = document.getElementById('activeLockCard');
         const resumeLink = document.getElementById('resumeLink');
         document.getElementById('activePrinterName').textContent = printer;
-        resumeLink.href = '/arn/scan?Printer=' + encodeURIComponent(printer);
+        resumeLink.href = '/arn/scan';
 
         let stationState;
         try {
-            const result = await api('/arn/api/state?Printer=' + encodeURIComponent(printer));
+            const result = await api('/arn/api/state');
             stationState = result.state;
             if (stationState.active) {
                 lockCard.classList.add('visible');
@@ -106,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 try {
-                    const lookup = await api('/arn/api/lookup?Printer=' + encodeURIComponent(printer) + '&manufacturerPartNo=' + encodeURIComponent(partNo));
+                    const lookup = await api('/arn/api/lookup?manufacturerPartNo=' + encodeURIComponent(partNo));
                     setMetadata(lookup.data);
                     document.getElementById('lookupBadge').textContent = 'Matched from Excel';
                 } catch (error) {
@@ -127,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     mo: moInput.value.trim(),
                     manufacturerPartNo: mpnInput.value.trim()
                 });
-                window.location.assign('/arn/scan?Printer=' + encodeURIComponent(printer));
+                window.location.assign('/arn/scan');
             } catch (error) {
                 displayAlert(alert, error.message, 'error');
                 lockButton.disabled = false;
@@ -159,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let state = null;
 
         async function refreshState() {
-            const result = await api('/arn/api/state?Printer=' + encodeURIComponent(printer));
+            const result = await api('/arn/api/state');
             state = result.state;
             renderState();
         }
@@ -360,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
             unlockButton.disabled = true;
             try {
                 await api('/arn/api/unlock', 'POST', {});
-                window.location.assign('/arn/setup?Printer=' + encodeURIComponent(printer));
+                window.location.assign('/arn/setup');
             } catch (error) {
                 displayAlert(alert, error.message, 'error');
                 unlockButton.disabled = false;

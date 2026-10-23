@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <meta name="theme-color" content="#1e2d42">
+    <title>Select Label Workflow | ACTMAX</title>
+    <link rel="stylesheet" href="/css/workflow-select.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="ACTMAX Traceability System home">
+            <span class="brand-name">ACTMAX <span aria-hidden="true">&gt;&gt;</span></span>
+            <span class="brand-caption">TRACEABILITY SYSTEM</span>
+        </a>
+        <nav class="top-nav" aria-label="Main navigation">
+            <span class="nav-current" aria-current="page">Workstation Hub</span>
+            <a href="/printer-setup">Printers &amp; Devices</a>
+            <a href="/dashboard">Management Dashboard</a>
+        </nav>
+        <span class="config-badge">WORKFLOW ROUTING</span>
+    </header>
+
+    <main class="main-content">
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow"><span aria-hidden="true">✣</span> PACKAGING DISPATCH STATION</p>
+            <h1 id="page-title">Select a Label Workflow</h1>
+            <p class="intro-copy">Choose the label process for this workstation. Each workflow opens on its own page.</p>
+        </section>
+
+        <section class="workflow-grid" aria-label="Available label workflows">
+            <article class="workflow-card arn-card">
+                <div class="card-kicker">CARTON TRACEABILITY</div>
+                <h2>ARN Customer Workflow</h2>
+                <p>Lock an MO and part, scan products into each carton, and print the ARN carton label when it is complete.</p>
+                <p class="assigned-printer">Assigned printer: <span id="arnAssignedPrinter">Loading…</span></p>
+                <div class="card-rule"></div>
+                <a id="arnWorkflowLink" class="workflow-button arn-button" href="/arn/setup">
+                    Enter ARN Workflow <span aria-hidden="true">→</span>
+                </a>
+            </article>
+
+            <article class="workflow-card standard-card">
+                <div class="card-kicker">PRODUCT LABEL PRINTING</div>
+                <h2>Standard Product Label</h2>
+                <p>Use the established Standard process to enter an MO and Actmax Part No. and print product labels.</p>
+                <p class="assigned-printer">Assigned printer: <span id="standardAssignedPrinter">Loading…</span></p>
+                <div class="card-rule"></div>
+                <a id="standardWorkflowLink" class="workflow-button standard-button" href="/standard">
+                    Enter Standard Workflow <span aria-hidden="true">→</span>
+                </a>
+            </article>
+        </section>
+
+        <p class="station-note"><span class="ready-mark" aria-hidden="true">✓</span> Select a workflow to begin station setup.</p>
+    </main>
+
+    <footer class="page-footer">
+        <span>ACTMAX INDUSTRIAL TRACEABILITY SYSTEM</span>
+        <span>Choose the appropriate workflow before printing.</span>
+    </footer>
+
+    <script>
+        fetch('/api/printer-setup/assignments', { cache: 'no-store' })
+            .then(response => response.json().then(data => ({ response, data })))
+            .then(({ response, data }) => {
+                if (!response.ok || data.status !== 'success') throw new Error('Assignment unavailable');
+                const arn = data.assignments.ARN;
+                const standard = data.assignments.STANDARD;
+                document.getElementById('arnAssignedPrinter').textContent = arn.printerLetter
+                    ? 'Printer ' + arn.printerLetter + ' · ' + arn.printerName
+                    : 'Not assigned';
+                document.getElementById('standardAssignedPrinter').textContent = standard.printerLetter
+                    ? 'Printer ' + standard.printerLetter + ' · ' + standard.printerName
+                    : 'Not assigned';
+            })
+            .catch(() => {
+                document.getElementById('arnAssignedPrinter').textContent = 'Assignment unavailable';
+                document.getElementById('standardAssignedPrinter').textContent = 'Assignment unavailable';
+            });
+    </script>
+</body>
+</html>

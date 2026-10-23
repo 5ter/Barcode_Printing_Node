@@ -6,6 +6,7 @@ const path = require('path'); // Required for resolving paths
 // --- Configuration Imports ---
 const config = require('./config/printerSetting'); 
 const PORT = config.PORT; 
+const { getAssignedPrinterId } = require('./utils/workflowPrinterAssignments');
 
 // --- NEW: Import the custom logger utility ---
 const logger = require('./utils/logger'); 
@@ -20,6 +21,8 @@ const barcodeRoutes = require('./routes/barcode');
 app.use(barcodeRoutes);
 const arnTraceabilityRoutes = require('./routes/arnTraceability');
 app.use('/arn', arnTraceabilityRoutes);
+const printerSetupRoutes = require('./routes/printerSetup');
+app.use(printerSetupRoutes);
 // Read-only management history for Standard product labels and ARN cartons.
 const managementDashboardRoutes = require('./routes/managementDashboard');
 app.use(managementDashboardRoutes);
@@ -35,19 +38,18 @@ app.post('/submit-data', async (req, res) => {
     let connection;
     let transactionOpen = false;
     try {
-        const { MO, ActID, ManufacturerPartNo, printerUrl_id, labelMode } = req.body;
+        const { MO, ActID, ManufacturerPartNo, labelMode } = req.body;
         const selectedLabelMode = typeof labelMode === 'string' ? labelMode.trim().toUpperCase() : '';
 
         logger.log(
             'Received POST request: MO: ' + (MO || '') +
             ', ActID: ' + (ActID || '') +
             ', ManufacturerPartNo: ' + (ManufacturerPartNo || '') +
-            ', Printer: ' + (printerUrl_id || '') +
             ', Label mode: ' + (selectedLabelMode || '<missing>')
         );
 
-        // The active tab explicitly selects the print flow; never infer it from
-        // which fields happened to be submitted.
+        // The page explicitly selects the workflow. Printer routing is resolved
+        // from the saved server-side workflow assignment, never from the URL.
         if (selectedLabelMode !== 'STANDARD' && selectedLabelMode !== 'ARN') {
             return res.status(400).json({
                 status: 'error',
@@ -139,8 +141,15 @@ app.post('/submit-data', async (req, res) => {
             logger.log('- Customer_ID: ' + customerID);
         }
 
-        // Use the printer selected in the interface (A-D) for either mode.
-        const printerId = 'PRINTER_' + printerUrl_id;
+        const printerId = await getAssignedPrinterId(connection, 'STANDARD', true);
+        if (!printerId) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(503).json({
+                status: 'error',
+                message: 'No printer is assigned to the Standard workflow. Configure one on the Printer Setup page.'
+            });
+        }
         logger.log('- printer_ID: ' + printerId);
         const printerConfig = config.getPrinterConfig(printerId);
         if (!printerConfig) {

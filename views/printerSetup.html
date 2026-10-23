@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <meta name="theme-color" content="#0f172a">
+    <title>Printer Setup | ACTMAX Traceability</title>
+    <link rel="stylesheet" href="/css/printer-setup.css">
+    <script src="/printer-setup.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="ACTMAX Traceability System home">
+            <span class="brand-title">ACTMAX <span aria-hidden="true">&gt;&gt;</span></span>
+            <span class="brand-caption">TRACEABILITY SYSTEM</span>
+        </a>
+        <nav aria-label="Main navigation">
+            <a href="/">Workstation Hub</a>
+            <a class="current" href="/printer-setup" aria-current="page">Printers &amp; Devices</a>
+            <a href="/dashboard">Records / Database</a>
+        </nav>
+        <span class="config-badge">SERVER CONFIGURATION</span>
+    </header>
+
+    <main class="page-content">
+        <div class="eyebrow">WORKFLOW ROUTING / DEVICE ASSIGNMENT</div>
+        <div class="heading-row">
+            <div>
+                <h1>Printer Setup &amp; Workflow Assignment</h1>
+                <p class="lede">Assign configured printers to workflows. A printer can serve only one workflow; an unassigned workflow cannot print until a printer is assigned.</p>
+            </div>
+            <a class="back-link" href="/">Back to Workstation Hub</a>
+        </div>
+
+        <div id="setupMessage" class="message" role="status" aria-live="polite">Loading current printer assignments…</div>
+
+        <section class="summary-grid" aria-label="Printer assignment summary">
+            <article class="summary-card"><span>CONFIGURED PRINTERS</span><strong id="printerCount">—</strong></article>
+            <article class="summary-card"><span>WORKFLOWS ROUTED</span><strong id="workflowCount">—</strong></article>
+            <article class="summary-card"><span>AVAILABLE PRINTERS</span><strong id="availableCount">—</strong></article>
+        </section>
+
+        <section class="assignment-panel" aria-labelledby="assignment-title">
+            <div class="section-heading">
+                <div>
+                    <div class="section-kicker">PIPELINE MAPPING</div>
+                    <h2 id="assignment-title">Assign printers to workflows</h2>
+                </div>
+                <span class="pill">Changes apply to new print activity</span>
+            </div>
+            <div class="assignment-grid">
+                <label class="assignment-card standard-card" for="standardPrinter">
+                    <span class="workflow-mark">STANDARD</span>
+                    <strong>Standard Product Label</strong>
+                    <span class="description">MO and Actmax Part No. product-label printing.</span>
+                    <span class="field-label">Assigned printer</span>
+                    <select id="standardPrinter" disabled aria-label="Printer assigned to Standard workflow">
+                        <option value="">Loading printers…</option>
+                    </select>
+                </label>
+                <label class="assignment-card arn-card" for="arnPrinter">
+                    <span class="workflow-mark">ARN CUSTOMER</span>
+                    <strong>ARN Carton Workflow</strong>
+                    <span class="description">Carton setup, unit scans, and ARN carton-label printing.</span>
+                    <span class="field-label">Assigned printer</span>
+                    <select id="arnPrinter" disabled aria-label="Printer assigned to ARN workflow">
+                        <option value="">Loading printers…</option>
+                    </select>
+                </label>
+            </div>
+            <div id="assignmentError" class="inline-error" role="alert" hidden></div>
+            <div class="form-actions">
+                <p>Each printer can be assigned to only one workflow. Choosing a printer already in use moves the previous workflow to Unassigned.</p>
+                <button id="saveAssignments" type="button" disabled>Save Workflow Assignments</button>
+            </div>
+        </section>
+
+        <section class="device-panel" aria-labelledby="device-title">
+            <div class="section-heading">
+                <div>
+                    <div class="section-kicker">CONFIGURED HARDWARE</div>
+                    <h2 id="device-title">Available printers</h2>
+                </div>
+                <span class="subtle-note">Printer names and network endpoints are managed in server configuration.</span>
+            </div>
+            <div id="printerList" class="printer-list" aria-live="polite"></div>
+        </section>
+
+        <aside class="safety-note">
+            <strong>ARN carton safety</strong>
+            <span>The ARN assignment cannot be changed while an ARN MO/station lock or unfinished carton exists. Finish and unlock the MO first so its saved station state is not stranded.</span>
+        </aside>
+        <p class="security-note">This setup page is not access-controlled yet. Until authentication is added, anyone who can reach the application can change workflow assignments.</p>
+    </main>
+
+    <footer class="page-footer"><span>ACTMAX INDUSTRIAL TRACEABILITY SYSTEM</span><span>Printer IPs remain in config/printerSetting.js</span></footer>
+</body>
+</html>

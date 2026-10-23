@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Actmax Label Printing</title>
+    <title>Standard Label Printing | ACTMAX</title>
     <!-- Bootstrap 5 CSS -->
    <link href="css/bootstrap.min.css" rel="stylesheet"> 
     
@@ -58,36 +58,20 @@
 </div>
 
                 <nav class="mb-3 text-end" aria-label="Application navigation">
-                    <a id="excelUploaderLink" data-uploader-port="3005"
-                       class="btn btn-outline-primary btn-sm" href="http://localhost:3005/?Printer=A&amp;MainPort=3003">
-                        Upload Excel
+                    <a id="workflowHomeLink" class="btn btn-outline-secondary btn-sm" href="/">
+                        Choose Workflow
                     </a>
-                    <a class="btn btn-outline-secondary btn-sm ms-1" href="/dashboard">
-                        Management Dashboard
+                    <a class="btn btn-outline-secondary btn-sm" href="/printer-setup">
+                        Printer Setup
                     </a>
                 </nav>
 
-                <div class="mb-3">
-                    <label for="printerSelect" class="form-label fw-medium">Selected printer :</label>
-                    <select id="printerSelect" class="form-select" aria-label="Select printer A through D">
-                        <option value="A">Printer A</option>
-                        <option value="B">Printer B</option>
-                        <option value="C">Printer C</option>
-                        <option value="D">Printer D</option>
-                    </select>
-                </div>
-
-                <div class="nav nav-tabs" role="tablist" aria-label="Label type">
-                    <button class="nav-link active" id="standardTab" type="button"
-                            role="tab" aria-selected="true" aria-controls="standardPanel"
-                            data-label-tab="standard">Standard Label</button>
-                    <button class="nav-link" id="arnTab" type="button"
-                            role="tab" aria-selected="false" aria-controls="arnPanel"
-                            data-label-tab="arn">ARN Label</button>
+                <div class="alert alert-light border mb-3" role="status">
+                    Standard workflow printer: <strong id="assignedPrinterLabel">Loading assignment…</strong>
                 </div>
 
                 <div class="pt-4">
-                    <section id="standardPanel" role="tabpanel" aria-labelledby="standardTab">
+                    <section id="standardPanel">
                         <form id="dataForm" class="needs-validation" novalidate>
                             <div class="mb-3">
                                 <label for="MO" class="form-label fw-medium">MO :</label>
@@ -114,47 +98,15 @@
                             </button>
                         </form>
                     </section>
-
-                    <section id="arnPanel" role="tabpanel" aria-labelledby="arnTab" hidden>
-                        <form id="arnForm" class="needs-validation" novalidate>
-                            <p class="form-text mb-3">Enter the MO for print history and the Manufacturer Part No. from the ARN Excel row. ARN Part No., Quantity and PO are looked up by Manufacturer Part No. Each submission sends one label; Quantity is printed on the label, not used as the number of copies. After correcting a print-quality or media issue, retry the same reference below.</p>
-                            <div class="mb-3">
-                                <label for="ARN_MO" class="form-label fw-medium">MO :</label>
-                                <input type="text" id="ARN_MO" name="MO" required
-                                       class="form-control" placeholder="Enter Manufacturing Order">
-                                <div class="invalid-feedback">MO field is required.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="ARN_ManufacturerPartNo" class="form-label fw-medium">Mfr Part No. :</label>
-                                <input type="text" id="ARN_ManufacturerPartNo" name="ManufacturerPartNo" required
-                                       class="form-control" placeholder="Enter Manufacturer Part No.">
-                                <div class="invalid-feedback">Manufacturer Part No. is required.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="ARNPartNoDisplay" class="form-label fw-medium">ARN Part No. (from Excel) :</label>
-                                <input type="text" id="ARNPartNoDisplay" name="ARNPartNoDisplay" readonly
-                                       value="Awaiting print job..." class="form-control">
-                            </div>
-
-                            <button type="submit" class="btn btn-primary btn-extra-large w-100 shadow-sm">
-                                Print ARN Label
-                            </button>
-                            <button type="button" id="retryArnPrint" class="btn btn-outline-warning w-100 mt-3" hidden>
-                                Retry same ARN reference
-                            </button>
-                        </form>
-                    </section>
                 </div>
 
                 <!-- General Response Area -->
                 <div id="response" class="text-secondary mt-5">
-                    <p id="message" class="text-sm">Choose a label tab, then enter its MO and matching part number.</p>
+                    <p id="message" class="text-sm">Enter the MO and Actmax Part No. for the Standard label.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Bootstrap 5 JavaScript Bundle (Popper included) -->
-    <script src="ajax.js?v=arn-retry-1"></script>
+    <script src="ajax.js?v=standard-workflow-1"></script>

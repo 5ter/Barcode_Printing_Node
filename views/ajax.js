@@ -1,210 +1,81 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const printerId = String(urlParams.get('Printer') || 'A').toUpperCase().replace(/^PRINTER_/, '');
-    const printerSelect = document.getElementById('printerSelect');
     const message = document.getElementById('message');
-    const tabs = Array.from(document.querySelectorAll('[data-label-tab]'));
-    const panels = {
-        standard: document.getElementById('standardPanel'),
-        arn: document.getElementById('arnPanel')
-    };
-
-    if (printerSelect) {
-        printerSelect.value = /^[ABCD]$/.test(printerId) ? printerId : 'A';
-        printerSelect.addEventListener('change', () => {
-            const nextUrl = new URL(window.location.href);
-            nextUrl.searchParams.set('Printer', printerSelect.value);
-            window.location.assign(nextUrl.pathname + nextUrl.search);
-        });
-    }
-
-    const excelUploaderLink = document.getElementById('excelUploaderLink');
-    if (excelUploaderLink) {
-        const uploaderUrl = new URL(window.location.href);
-        uploaderUrl.port = excelUploaderLink.dataset.uploaderPort || '3005';
-        uploaderUrl.pathname = '/';
-        uploaderUrl.search = '';
-        uploaderUrl.hash = '';
-        uploaderUrl.searchParams.set('Printer', /^[ABCD]$/.test(printerId) ? printerId : 'A');
-        uploaderUrl.searchParams.set('MainPort', window.location.port || '3003');
-        excelUploaderLink.href = uploaderUrl.toString();
-    }
-
-    function focusNextInput(form) {
-        const mo = form.elements.MO;
-        const partNumber = form.elements.ActID || form.elements.ManufacturerPartNo;
-
-        if (mo && !mo.value) {
-            mo.focus();
-        } else if (partNumber && !partNumber.value) {
-            partNumber.focus();
-        }
-    }
-
-    function showTab(mode) {
-        for (const tab of tabs) {
-            const isSelected = tab.dataset.labelTab === mode;
-            tab.classList.toggle('active', isSelected);
-            tab.setAttribute('aria-selected', String(isSelected));
-        }
-
-        for (const [panelMode, panel] of Object.entries(panels)) {
-            panel.hidden = panelMode !== mode;
-        }
-
-        focusNextInput(document.getElementById(mode === 'arn' ? 'arnForm' : 'dataForm'));
-    }
-
-    tabs.forEach((tab) => {
-        tab.addEventListener('click', () => {
-            if (tab.dataset.labelTab === 'arn') {
-                window.location.assign('/arn/setup?Printer=' + encodeURIComponent(printerId));
-                return;
-            }
-            showTab(tab.dataset.labelTab);
-        });
-    });
-
     const standardForm = document.getElementById('dataForm');
-    const arnForm = document.getElementById('arnForm');
-    const retryArnButton = document.getElementById('retryArnPrint');
-    let retryableArnJob = null;
+    const workflowHomeLink = document.getElementById('workflowHomeLink');
+    const assignedPrinterLabel = document.getElementById('assignedPrinterLabel');
+    const submitButton = standardForm.querySelector('button[type="submit"]');
+    let assignedPrinter = null;
+    submitButton.disabled = true;
+    if (workflowHomeLink) workflowHomeLink.href = '/';
 
-    function clearArnRetry() {
-        retryableArnJob = null;
-        retryArnButton.hidden = true;
-        retryArnButton.disabled = false;
+    fetch('/api/printer-setup/assignments', { cache: 'no-store' })
+        .then(response => response.json().then(data => ({ response, data })))
+        .then(({ response, data }) => {
+            if (!response.ok || data.status !== 'success' || !data.assignments.STANDARD.printerId) {
+                throw new Error(data.message || 'No printer is assigned to the Standard workflow.');
+            }
+            assignedPrinter = data.assignments.STANDARD;
+            assignedPrinterLabel.textContent = 'Printer ' + assignedPrinter.printerLetter + ' — ' + assignedPrinter.printerName;
+            submitButton.disabled = false;
+            message.textContent = 'Enter the MO and Actmax Part No. The Standard workflow is assigned to Printer ' + assignedPrinter.printerLetter + '.';
+        })
+        .catch(error => {
+            assignedPrinterLabel.textContent = 'Assignment unavailable';
+            message.textContent = error.message + ' Open Printer Setup or contact the application administrator.';
+        });
+    function focusNextInput() {
+        const mo = standardForm.elements.MO;
+        const partNumber = standardForm.elements.ActID;
+        if (mo && !mo.value) mo.focus();
+        else if (partNumber && !partNumber.value) partNumber.focus();
     }
 
-    function exposeArnRetry(printHistoryId, reference) {
-        if (!printHistoryId) return;
-        retryableArnJob = {
-            printHistoryId: String(printHistoryId),
-            reference: String(reference || 'unknown')
-        };
-        retryArnButton.hidden = false;
-    }
+    const moInput = standardForm.elements.MO;
+    const partNumberInput = standardForm.elements.ActID;
+    moInput.addEventListener('change', focusNextInput);
+    partNumberInput.addEventListener('change', focusNextInput);
 
-    [standardForm, arnForm].forEach((form) => {
-        const mo = form.elements.MO;
-        const partNumber = form.elements.ActID || form.elements.ManufacturerPartNo;
-        mo.addEventListener('change', () => focusNextInput(form));
-        partNumber.addEventListener('change', () => focusNextInput(form));
-    });
-
-    async function submitPrint(form, mode) {
-        const resultDisplay = mode === 'ARN'
-            ? form.elements.ARNPartNoDisplay
-            : form.elements.CustID;
-        const submitButton = form.querySelector('button[type="submit"]');
-
-        if (!form.checkValidity()) {
-            form.classList.add('was-validated');
-            focusNextInput(form);
+    standardForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!standardForm.checkValidity()) {
+            standardForm.classList.add('was-validated');
+            focusNextInput();
             return;
         }
 
-        if (mode === 'ARN') clearArnRetry();
-
-        const payload = {
-            MO: form.elements.MO.value,
-            printerUrl_id: printerId,
-            labelMode: mode
-        };
-
-        if (mode === 'ARN') {
-            payload.ManufacturerPartNo = form.elements.ManufacturerPartNo.value;
-        } else {
-            payload.ActID = form.elements.ActID.value;
-        }
-
-        resultDisplay.value = 'Processing request... Please wait.';
-        message.textContent = 'Sending ' + (mode === 'ARN' ? 'ARN ' : '') +
-            'print request (Printer: ' + (printerId || 'Default') + ')...';
-        form.classList.remove('was-validated');
+        const customerPartDisplay = standardForm.elements.CustID;
+        customerPartDisplay.value = 'Processing request... Please wait.';
+        message.textContent = 'Sending Standard print request to Printer ' + assignedPrinter.printerLetter + '...';
+        standardForm.classList.remove('was-validated');
         submitButton.disabled = true;
 
         try {
             const response = await fetch('/submit-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    MO: moInput.value,
+                    ActID: partNumberInput.value,
+                    labelMode: 'STANDARD'
+                })
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                if (mode === 'ARN' && data.retryAvailable) {
-                    exposeArnRetry(data.printHistoryId, data.labelReference || data.message);
-                }
                 throw new Error(data.message || 'Request failed with status ' + response.status);
             }
 
-            resultDisplay.value = mode === 'ARN'
-                ? (data.arnPartNo || 'N/A')
-                : (data.customerID || 'N/A');
+            customerPartDisplay.value = data.customerID || 'N/A';
             const serial = Array.isArray(data.newSerial) ? data.newSerial.join(', ') : data.newSerial;
-            if (mode === 'ARN') {
-                exposeArnRetry(data.printHistoryId, data.message);
-                message.textContent = 'ARN label data sent to the printer. Inspect the physical label. MO: ' + data.mo +
-                    '; Qty on label: ' + data.quantity +
-                    '; PO: ' + data.purchaseOrder +
-                    '; Mfr Ref: ' + data.message +
-                    '. If missing or defective after correcting the printer, use Retry same ARN reference.';
-            } else {
-                message.textContent = 'Print job successful. Serial: ' + serial +
-                    '. Generated label: ' + data.message;
-            }
+            message.textContent = 'Print job successful. Serial: ' + serial +
+                '. Generated label: ' + data.message;
         } catch (error) {
-            console.error('Print request failed:', error);
-            resultDisplay.value = 'FAILED';
-            message.textContent = 'Error: ' + error.message +
-                (retryableArnJob ? ' A same-reference retry is available for ' + retryableArnJob.reference + '.' : '');
+            console.error('Standard print request failed:', error);
+            customerPartDisplay.value = 'FAILED';
+            message.textContent = 'Error: ' + error.message;
         } finally {
             submitButton.disabled = false;
         }
-    }
-
-    standardForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        submitPrint(standardForm, 'STANDARD');
     });
 
-    arnForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        submitPrint(arnForm, 'ARN');
-    });
-
-    retryArnButton.addEventListener('click', async () => {
-        if (!retryableArnJob) return;
-
-        const job = retryableArnJob;
-        const confirmed = window.confirm(
-            'Resend ARN reference ' + job.reference + ' to the original printer? This does not create a new reference, but can produce a duplicate label if the earlier label is usable.'
-        );
-        if (!confirmed) return;
-
-        retryArnButton.disabled = true;
-        message.textContent = 'Retrying ARN reference ' + job.reference + ' with the same saved printer payload...';
-        try {
-            const response = await fetch('/retry-arn-print', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ printHistoryId: job.printHistoryId })
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.message || 'Retry failed with status ' + response.status);
-            }
-
-            arnForm.elements.ARNPartNoDisplay.value = data.arnPartNo || 'N/A';
-            message.textContent = 'The same ARN reference was sent again: ' + data.message + '. Inspect the physical label.';
-        } catch (error) {
-            console.error('ARN retry failed:', error);
-            message.textContent = 'Retry did not complete for ' + job.reference + ': ' + error.message +
-                '. The retry button remains available; no new reference was allocated.';
-        } finally {
-            retryArnButton.disabled = false;
-        }
-    });
-
-    showTab('standard');
+    focusNextInput();
 });

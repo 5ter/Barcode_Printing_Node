@@ -11,15 +11,10 @@
     <header class="arn-header">
         <div class="arn-brand">ACTMAX <span aria-hidden="true">&gt;&gt;</span><small>Traceability System</small></div>
         <div class="arn-header-controls">
-            <a href="/?Printer=A" id="standardLink" class="arn-button arn-button-secondary">Standard Label</a>
-            <a href="http://localhost:3005/?Printer=A&amp;MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
-            <label for="printerSelect">Printer</label>
-            <select id="printerSelect" aria-label="Select ARN printer">
-                <option value="A">Printer A</option>
-                <option value="B">Printer B</option>
-                <option value="C">Printer C</option>
-                <option value="D">Printer D</option>
-            </select>
+            <a href="/standard" id="standardLink" class="arn-button arn-button-secondary">Standard Label</a>
+            <a href="/printer-setup" class="arn-button arn-button-secondary">Printer Setup</a>
+            <a href="http://localhost:3005/?MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
+            <span class="arn-badge">Assigned: <strong id="assignedPrinterName">Loading…</strong></span>
         </div>
     </header>
     <main class="arn-main">
@@ -29,7 +24,7 @@
             <div class="arn-step"><span class="arn-step-number">02</span><span>Unit Serial Tracing</span></div>
         </nav>
         <h1 class="arn-page-heading">Carton Setup &amp; ARN Label</h1>
-        <p class="arn-lede">Enter the MO and Manufacturer Part No. once. Excel supplies the ARN label details and carton capacity; the active job is saved separately for each selected printer.</p>
+        <p class="arn-lede">Enter the MO and Manufacturer Part No. once. Excel supplies the ARN label details and carton capacity; the active job is saved on the printer assigned to the ARN workflow.</p>
         <div id="setupAlert" class="arn-alert" role="status"></div>
         <div class="arn-layout">
             <section class="arn-card">
@@ -64,11 +59,11 @@
                     </div>
                     <button class="arn-button arn-button-primary arn-button-block" id="lockButton" type="submit">Lock Active Carton &amp; Continue to Scanning</button>
                 </form>
-                <p class="arn-notice">The lock survives page refreshes and is isolated by printer. A different MO/part cannot replace an active lock until its current carton is sealed.</p>
+                <p class="arn-notice">The lock survives page refreshes. A different MO/part cannot replace it until the active carton is sealed and the MO is finished; change the assigned printer only after unlocking the MO.</p>
                 <div id="activeLockCard" class="arn-lock-card">
                     <div class="arn-row">
                         <div><strong id="activeLockText"></strong><div class="arn-help" id="activeCartonText" style="margin-top:5px"></div></div>
-                        <a id="resumeLink" class="arn-button arn-button-primary" href="/arn/scan?Printer=A">Resume scanning</a>
+                        <a id="resumeLink" class="arn-button arn-button-primary" href="/arn/scan">Resume scanning</a>
                     </div>
                 </div>
             </section>

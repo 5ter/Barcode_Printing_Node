@@ -7,6 +7,7 @@ const getWWYY = require('../utils/dateTime');
 const { printLabel_arn } = require('../utils/printer');
 const { generateArnLabel } = require('../utils/arn_label');
 const arnLabelSettings = require('../config/arnLabelSetting');
+const { getAssignedPrinterId } = require('../utils/workflowPrinterAssignments');
 
 const router = express.Router();
 const setupPage = path.join(__dirname, '..', 'views', 'arn', 'setup.html');
@@ -27,11 +28,6 @@ router.get('/workflow.js', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.type('application/javascript').sendFile(workflowScript);
 });
-
-function normalizePrinterId(value) {
-    const letter = String(value || '').trim().toUpperCase().replace(/^PRINTER_/, '');
-    return /^[ABCD]$/.test(letter) ? 'PRINTER_' + letter : null;
-}
 
 function printerLetter(printerId) {
     return printerId.replace(/^PRINTER_/, '');
@@ -209,19 +205,33 @@ async function transmitPrintJob(job) {
     }
 }
 
-function getPrinterFromRequest(req, res) {
-    const printerId = normalizePrinterId(
-        (req.body && (req.body.printer || req.body.printerUrl_id)) || req.query.Printer || req.query.printer
-    );
-    if (!printerId) {
-        res.status(400).json({ status: 'error', message: 'Choose one of the configured printers A, B, C, or D.' });
+async function getArnWorkflowPrinter(res) {
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const printerId = await getAssignedPrinterId(connection, 'ARN');
+        if (!printerId) {
+            res.status(503).json({
+                status: 'error',
+                message: 'No printer is assigned to the ARN workflow. Configure one on the Printer Setup page.'
+            });
+            return null;
+        }
+        return printerId;
+    } catch (error) {
+        logger.error('Could not resolve the assigned ARN printer:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Could not resolve the ARN printer assignment. Check the printer setup migration and database.'
+        });
         return null;
+    } finally {
+        if (connection) connection.release();
     }
-    return printerId;
 }
 
 router.get('/api/state', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     let connection;
     try {
@@ -236,7 +246,7 @@ router.get('/api/state', async (req, res) => {
 });
 
 router.get('/api/lookup', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     const manufacturerPartNo = String(req.query.manufacturerPartNo || '').trim();
     if (!manufacturerPartNo) {
@@ -262,7 +272,7 @@ router.get('/api/lookup', async (req, res) => {
 });
 
 router.post('/api/lock', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     const mo = String(req.body.mo || '').trim();
     const manufacturerPartNo = String(req.body.manufacturerPartNo || '').trim();
@@ -343,7 +353,7 @@ router.post('/api/lock', async (req, res) => {
 });
 
 router.post('/api/scan', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     const scannedContent = typeof req.body.content === 'string'
         ? req.body.content.replace(/[\r\n]+$/g, '')
@@ -441,7 +451,7 @@ router.post('/api/scan', async (req, res) => {
 });
 
 router.post('/api/scan/remove', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     const scanId = String(req.body.scanId || '').trim();
     if (!/^[1-9][0-9]*$/.test(scanId)) {
@@ -571,14 +581,14 @@ async function prepareCartonForPrint(req, res, printerId) {
     });
 }
 
-router.post('/api/carton/complete', (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+router.post('/api/carton/complete', async (req, res) => {
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     return prepareCartonForPrint(req, res, printerId);
 });
 
 router.post('/api/carton/next', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     let connection;
     let transactionOpen = false;
@@ -623,7 +633,7 @@ router.post('/api/carton/next', async (req, res) => {
 });
 
 router.post('/api/unlock', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     let connection;
     let transactionOpen = false;
@@ -671,7 +681,7 @@ router.post('/api/unlock', async (req, res) => {
 });
 
 router.post('/api/retry-label', async (req, res) => {
-    const printerId = getPrinterFromRequest(req, res);
+    const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
     const historyId = String(req.body.printHistoryId || '').trim();
     if (!/^[1-9][0-9]*$/.test(historyId)) {

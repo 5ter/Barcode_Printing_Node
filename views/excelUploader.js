@@ -9,9 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!fileInput || !fileNameDisplay || !submitButton) return;
 
-    const query = new URLSearchParams(window.location.search);
-    const printerValue = String(query.get('Printer') || 'A').toUpperCase().replace(/^PRINTER_/, '');
-    const printer = /^[ABCD]$/.test(printerValue) ? printerValue : 'A';
     const requestedMainPort = Number(document.body.dataset.mainAppPort);
     const mainAppPort = Number.isInteger(requestedMainPort) && requestedMainPort > 0 && requestedMainPort <= 65535
         ? String(requestedMainPort)
@@ -23,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         url.pathname = pathname;
         url.search = '';
         url.hash = '';
-        url.searchParams.set('Printer', printer);
         return url.toString();
     }
 
@@ -32,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadLink = document.querySelector('[data-path="upload-excel"]');
     const dashboardLink = document.querySelector('[data-path="dashboard"]');
     if (scanLink) scanLink.href = mainAppUrl('/arn/setup');
-    if (labelLink) labelLink.href = mainAppUrl('/');
+    if (labelLink) labelLink.href = mainAppUrl('/standard');
     if (uploadLink) uploadLink.href = '/';
     if (dashboardLink) dashboardLink.href = mainAppUrl('/dashboard');
 
