@@ -11,6 +11,8 @@ const app = express();
 const port = process.env.PORT || 3005;
 const mainAppPort = Number(process.env.MAIN_APP_PORT) || 3003;
 const uploaderPagePath = path.join(__dirname, 'excel uploader page', 'code.html');
+const authRouter = require('./routes/auth');
+const { requireRoles } = require('./utils/auth');
 
 // --- Configuration ---
 // --- NEW: Import the custom logger utility ---
@@ -77,22 +79,50 @@ function escapeHtml(value) {
 // --- Routes ---
 
 // Serve static files (like CSS) from the 'css' directory
+app.use(express.json());
+app.use(authRouter);
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/image', express.static(path.join(__dirname, 'image')));
+app.get('/app-shell.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'appShell.js'));
+});
 // Serve the supplied redesign and replace its prototype-only interactions with
 // the real workbook upload client. The existing /upload parser stays unchanged.
-app.get('/', (req, res, next) => {
+function mainHubUrl(req) {
+    const hub = new URL(req.protocol + '://' + req.get('host'));
+    hub.port = String(mainAppPort);
+    hub.pathname = '/';
+    hub.search = '';
+    hub.hash = '';
+    return hub;
+}
+
+function uploaderLoginRedirect(req) {
+    const returnTarget = req.protocol + '://' + req.get('host') + (req.originalUrl || '/');
+    const hub = mainHubUrl(req);
+    hub.searchParams.set('login', 'required');
+    hub.searchParams.set('returnTo', returnTarget);
+    return hub.toString();
+}
+
+const uploaderAccess = requireRoles(['SUPERVISOR', 'ADMIN'], {
+    loginRedirect: uploaderLoginRedirect,
+    homeUrl: req => mainHubUrl(req).toString()
+});
+
+app.get('/', uploaderAccess, (req, res, next) => {
     fs.readFile(uploaderPagePath, 'utf8', (error, sourceHtml) => {
         if (error) return next(error);
 
-        const requestedMainPort = Number(req.query.MainPort);
-        const pageMainPort = Number.isInteger(requestedMainPort) && requestedMainPort > 0 && requestedMainPort <= 65535
-            ? requestedMainPort
-            : mainAppPort;
+        const pageMainPort = mainAppPort;
         const html = sourceHtml
             // The mock script displayed fake commits and sample operator data.
             .replace(/<script>\s*\/\/ UI Micro-interactions[\s\S]*?<\/script>/i, '')
-            .replace(/<body\b/i, '<body data-main-app-port="' + pageMainPort + '"')
+            .replace(/<header\b[^>]*>[\s\S]*?<\/header>/i, '')
+            .replace(/\bpt-16\b/, '')
+            .replace(/<body\b/i, '<body data-main-app-port="' + pageMainPort + '" data-excel-app-port="' + Number(port) + '"')
+            .replace('</head>', '<link rel="stylesheet" href="/css/app-shell.css"><script src="/app-shell.js" defer></script></head>')
             .replace('</body>', '<script src="/excel-uploader.js" defer></script></body>');
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -100,22 +130,22 @@ app.get('/', (req, res, next) => {
     });
 });
 
-app.get('/excel-uploader.js', (req, res) => {
+app.get('/excel-uploader.js', uploaderAccess, (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'excelUploader.js'));
 });
 
-app.get('/templates/standard', (req, res) => {
+app.get('/templates/standard', uploaderAccess, (req, res) => {
     res.download(path.join(__dirname, 'Product_Code-Template.xlsx'));
 });
 
-app.get('/templates/arn', (req, res) => {
+app.get('/templates/arn', uploaderAccess, (req, res) => {
     res.download(path.join(__dirname, 'ARN_Template.xlsx'));
 });
 
 // 2. Handle workbook uploads. Standard rows keep the legacy UPSERT; ARN rows
 // are keyed and updated by Manufacturer PartNo in the ARN-specific table.
-app.post('/upload', upload.single('excelFile'), async (req, res) => {
+app.post('/upload', uploaderAccess, upload.single('excelFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).send('<p>No file was uploaded. Please select an Excel file.</p><p><a href="/">Try again</a></p>');
     }
@@ -297,9 +327,9 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
         const updatedLine = '<li class="list-group-item">Updated: <span class="badge bg-warning float-end">' + updatedCount + '</span></li>';
         return res.send(`
             <!DOCTYPE html>
-            <html><head><title>Import Result</title><link href="css/bootstrap.min.css" rel="stylesheet"></head>
-            <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                <div class="card shadow-lg p-5 text-center" style="max-width: 600px;">
+            <html><head><title>Import Result</title><link href="css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="/css/app-shell.css"><script src="/app-shell.js" defer></script></head>
+            <body class="bg-light min-vh-100 p-3" data-main-app-port="${mainAppPort}" data-excel-app-port="${Number(port)}">
+                <div class="card shadow-lg p-5 text-center" style="max-width: 600px; margin:40px auto;">
                     <h1 class="card-title text-success mb-3">Import Successful</h1>
                     <p class="lead">${importMode} rows processed: <strong>${rowsToImport.length}</strong></p>
                     <ul class="list-group list-group-flush text-start mb-4">
@@ -316,9 +346,9 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
         const statusCode = error.statusCode || 500;
         return res.status(statusCode).send(`
             <!DOCTYPE html>
-            <html><head><title>Import Failed</title><link href="css/bootstrap.min.css" rel="stylesheet"></head>
-            <body class="bg-light d-flex align-items-center justify-content-center vh-100 p-3">
-                <div class="card shadow-lg p-5 text-center" style="max-width: 600px;">
+            <html><head><title>Import Failed</title><link href="css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="/css/app-shell.css"><script src="/app-shell.js" defer></script></head>
+            <body class="bg-light min-vh-100 p-3" data-main-app-port="${mainAppPort}" data-excel-app-port="${Number(port)}">
+                <div class="card shadow-lg p-5 text-center" style="max-width: 600px; margin:40px auto;">
                     <h1 class="card-title text-danger mb-3">Import Failed</h1>
                     <p class="text-danger mb-4">${escapeHtml(error.message)}</p>
                     <a href="/" class="btn btn-warning mt-3">Try again</a>
@@ -333,6 +363,10 @@ app.post('/upload', upload.single('excelFile'), async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-logger.log(`Server running at http://localhost:${port}`);
-});
+if (require.main === module) {
+    app.listen(port, () => {
+        logger.log(`Server running at http://localhost:${port}`);
+    });
+}
+
+module.exports = app;

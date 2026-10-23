@@ -5,18 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-store">
     <title>ARN Carton Setup | ACTMAX</title>
+    <link rel="stylesheet" href="/css/app-shell.css">
     <link rel="stylesheet" href="/css/arn-workflow.css">
+    <script src="/app-shell.js" defer></script>
 </head>
 <body data-arn-page="setup">
-    <header class="arn-header">
-        <div class="arn-brand">ACTMAX <span aria-hidden="true">&gt;&gt;</span><small>Traceability System</small></div>
-        <div class="arn-header-controls">
-            <a href="/standard" id="standardLink" class="arn-button arn-button-secondary">Standard Label</a>
-            <a href="/printer-setup" class="arn-button arn-button-secondary">Printer Setup</a>
-            <a href="http://localhost:3005/?MainPort=3003" id="excelUploadLink" class="arn-button arn-button-secondary">Excel Upload</a>
-            <span class="arn-badge">Assigned: <strong id="assignedPrinterName">Loading…</strong></span>
-        </div>
-    </header>
+    <div id="app-shell"></div>
     <main class="arn-main">
         <nav class="arn-stepper" aria-label="ARN workflow steps">
             <div class="arn-step active"><span class="arn-step-number">01</span><span>Carton Setup &amp; ARN</span></div>

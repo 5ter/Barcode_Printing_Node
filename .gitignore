@@ -4,6 +4,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+/config/authSecret.local.js
 
 # Local SQLite development/testing adapter and database files.
 /db/sqliteTest.js

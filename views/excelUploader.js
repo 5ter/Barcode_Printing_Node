@@ -152,6 +152,18 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('excelFile', file);
         try {
             const response = await fetch('/upload', { method: 'POST', body: formData });
+            if (response.status === 401) {
+                const loginUrl = mainAppUrl('/');
+                const target = new URL(loginUrl);
+                target.searchParams.set('login', 'required');
+                target.searchParams.set('returnTo', window.location.href);
+                window.location.assign(target.toString());
+                return;
+            }
+            if (response.status === 403) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.message || 'Your role is not authorized to import workbooks.');
+            }
             const resultHtml = await response.text();
             // The established upload route returns its success/error result page.
             // Render it directly instead of showing the mock success notification.

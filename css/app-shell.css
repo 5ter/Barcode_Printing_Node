@@ -1,0 +1,56 @@
+.app-shell-header {
+    position: relative;
+    z-index: 30;
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px clamp(14px, 2.5vw, 34px);
+    border-bottom: 1px solid #253248;
+    background: #0f172a;
+    color: #f8fafc;
+    font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif;
+}
+.app-shell-brand { display: flex; flex: 0 0 auto; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; white-space: nowrap; }
+.app-shell-brand strong { font: 800 17px/1.1 "JetBrains Mono", Consolas, monospace; letter-spacing: -.03em; }
+.app-shell-brand strong span { color: #9ab5fa; }
+.app-shell-brand small { color: #a7b5cb; font: 700 9px/1.2 "JetBrains Mono", Consolas, monospace; letter-spacing: .11em; }
+.app-shell-nav { min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; }
+.app-shell-nav a { min-height: 38px; display: inline-flex; align-items: center; padding: 8px 11px; border-radius: 5px; color: #c8d2e1; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.app-shell-nav a:hover { background: #ffffff12; color: #fff; }
+.app-shell-nav a[aria-current="page"] { background: #0d52d6; color: #fff; }
+.app-shell-account { margin-left: auto; display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.app-shell-role { max-width: 130px; overflow: hidden; padding: 7px 9px; border: 1px solid #3d4c63; border-radius: 5px; color: #d9e5fa; font: 700 10px "JetBrains Mono", Consolas, monospace; letter-spacing: .06em; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell-account button { min-height: 36px; padding: 7px 12px; border: 1px solid #52627a; border-radius: 5px; background: transparent; color: #f8fafc; font-size: 12px; font-weight: 650; }
+.app-shell-account button:hover { background: #ffffff12; }
+
+.auth-modal-layer { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 18px; background: rgb(9 17 32 / 62%); }
+.auth-modal-layer[hidden] { display: none; }
+.auth-modal { width: min(430px, 100%); padding: 24px; border: 1px solid #dce3ee; border-radius: 10px; background: #fff; box-shadow: 0 20px 65px rgb(0 0 0 / 28%); color: #15253b; font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif; }
+.auth-modal h2 { margin: 0; font-size: 23px; }
+.auth-modal p { margin: 8px 0 19px; color: #596579; font-size: 13px; line-height: 1.5; }
+.auth-modal label { display: grid; gap: 6px; margin: 0 0 14px; color: #46536a; font-size: 12px; font-weight: 700; }
+.auth-modal input, .auth-modal select { width: 100%; min-height: 43px; padding: 9px 11px; border: 1px solid #c7d1df; border-radius: 5px; background: #f8faff; color: #17263c; font: 14px "Hanken Grotesk", "Segoe UI", Arial, sans-serif; }
+.auth-modal input:focus, .auth-modal select:focus { outline: 3px solid #d7e5ff; border-color: #3972df; }
+.auth-modal-error { min-height: 19px; margin: 0 0 8px; color: #a62920; font-size: 12px; }
+.auth-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 5px; }
+.auth-modal-actions button { min-height: 40px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; color: #26364e; font-weight: 650; }
+.auth-modal-actions button[type="submit"] { border-color: #0d52d6; background: #0d52d6; color: #fff; }
+.auth-modal-actions button:disabled { opacity: .58; cursor: wait; }
+.app-shell-sr-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+
+@media (max-width: 1000px) {
+    .app-shell-header { flex-wrap: wrap; gap: 7px 14px; }
+    .app-shell-nav { order: 3; width: 100%; }
+    .app-shell-account { margin-left: auto; }
+}
+@media (max-width: 560px) {
+    .app-shell-header { padding: 9px 12px; }
+    .app-shell-brand strong { font-size: 15px; }
+    .app-shell-brand small { font-size: 8px; }
+    .app-shell-nav { gap: 2px; }
+    .app-shell-nav a { min-height: 34px; padding: 7px 8px; font-size: 11px; }
+    .app-shell-role { max-width: 92px; padding: 6px; font-size: 9px; }
+    .app-shell-account button { min-height: 33px; padding: 6px 9px; font-size: 11px; }
+    .auth-modal { padding: 19px; }
+}

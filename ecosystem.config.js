@@ -8,7 +8,8 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
-        PORT: 3003 // Unique Port for App 1
+        PORT: 3003, // Unique Port for App 1
+        AUTH_SESSION_SECRET: process.env.AUTH_SESSION_SECRET || ''
       }
     },
     // --- Application 2: Worker Process on Port 3001 ---
@@ -19,7 +20,9 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
-        PORT: 3005 // Unique Port for App 2
+        PORT: 3005, // Unique Port for App 2
+        MAIN_APP_PORT: 3003,
+        AUTH_SESSION_SECRET: process.env.AUTH_SESSION_SECRET || ''
       }
     },
     // --- Application 3: Admin Dashboard on Port 3002 ---
@@ -30,7 +33,9 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
-        PORT: 3006 // Unique Port for App 3
+        PORT: 3006, // Unique Port for App 3
+        MAIN_APP_PORT: 3003,
+        AUTH_SESSION_SECRET: process.env.AUTH_SESSION_SECRET || ''
       }
     },
         // --- Application 4: CCD Server ---

@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     submitButton.disabled = true;
     if (workflowHomeLink) workflowHomeLink.href = '/';
 
-    fetch('/api/printer-setup/assignments', { cache: 'no-store' })
+    fetch('/api/workflow-printers', { cache: 'no-store' })
         .then(response => response.json().then(data => ({ response, data })))
         .then(({ response, data }) => {
             if (!response.ok || data.status !== 'success' || !data.assignments.STANDARD.printerId) {

@@ -7,20 +7,11 @@
     <meta name="theme-color" content="#1e2d42">
     <title>Select Label Workflow | ACTMAX</title>
     <link rel="stylesheet" href="/css/workflow-select.css">
+    <link rel="stylesheet" href="/css/app-shell.css">
+    <script src="/app-shell.js" defer></script>
 </head>
 <body>
-    <header class="topbar">
-        <a class="brand" href="/" aria-label="ACTMAX Traceability System home">
-            <span class="brand-name">ACTMAX <span aria-hidden="true">&gt;&gt;</span></span>
-            <span class="brand-caption">TRACEABILITY SYSTEM</span>
-        </a>
-        <nav class="top-nav" aria-label="Main navigation">
-            <span class="nav-current" aria-current="page">Workstation Hub</span>
-            <a href="/printer-setup">Printers &amp; Devices</a>
-            <a href="/dashboard">Management Dashboard</a>
-        </nav>
-        <span class="config-badge">WORKFLOW ROUTING</span>
-    </header>
+    <div id="app-shell"></div>
 
     <main class="main-content">
         <section class="intro" aria-labelledby="page-title">
@@ -62,7 +53,7 @@
     </footer>
 
     <script>
-        fetch('/api/printer-setup/assignments', { cache: 'no-store' })
+        fetch('/api/workflow-printers', { cache: 'no-store' })
             .then(response => response.json().then(data => ({ response, data })))
             .then(({ response, data }) => {
                 if (!response.ok || data.status !== 'success') throw new Error('Assignment unavailable');

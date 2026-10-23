@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const db = require('../db/root');
 const logger = require('../utils/logger');
+const { requireRoles } = require('../utils/auth');
 const {
     WORKFLOWS,
     normalizePrinterId,
@@ -12,12 +13,38 @@ const {
 
 const router = express.Router();
 
-router.get('/printer-setup', (req, res) => {
+router.get('/printer-setup', requireRoles(['ADMIN']), (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.sendFile(path.join(__dirname, '..', 'views', 'printerSetup.html'));
 });
 
-router.get('/api/printer-setup/assignments', async (req, res) => {
+// Workstation pages need the current route to display the assigned printer;
+// this read-only summary intentionally omits network addresses and ports.
+router.get('/api/workflow-printers', async (req, res) => {
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const assignments = await loadWorkflowPrinterAssignments(connection);
+        const publicAssignments = toPublicAssignments(assignments);
+        return res.json({
+            status: 'success',
+            assignments: Object.fromEntries(Object.entries(publicAssignments).map(([key, value]) => [key, {
+                workflow: value.workflow,
+                label: value.label,
+                printerId: value.printerId,
+                printerLetter: value.printerLetter,
+                printerName: value.printerName
+            }]))
+        });
+    } catch (error) {
+        logger.error('Could not load public workflow printer routing:', error);
+        return res.status(500).json({ status: 'error', message: 'Workflow printer routing is unavailable.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+router.get('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (req, res) => {
     let connection;
     try {
         connection = await db.getConnection();
@@ -38,7 +65,7 @@ router.get('/api/printer-setup/assignments', async (req, res) => {
     }
 });
 
-router.post('/api/printer-setup/assignments', async (req, res) => {
+router.post('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (req, res) => {
     const body = req.body || {};
     const printerId = normalizePrinterId(body.printerId);
     const workflowKey = String(body.workflowKey || '').trim().toUpperCase();
@@ -120,7 +147,7 @@ router.post('/api/printer-setup/assignments', async (req, res) => {
     }
 });
 
-router.get('/printer-setup.js', (req, res) => {
+router.get('/printer-setup.js', requireRoles(['ADMIN']), (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.type('application/javascript').sendFile(path.join(__dirname, '..', 'views', 'printerSetup.js'));
 });

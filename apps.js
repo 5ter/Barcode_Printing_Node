@@ -10,17 +10,25 @@ const { getAssignedPrinterId } = require('./utils/workflowPrinterAssignments');
 
 // --- NEW: Import the custom logger utility ---
 const logger = require('./utils/logger'); 
+const authRouter = require('./routes/auth');
+const { requireRoles } = require('./utils/auth');
 
 // --- Middleware ---
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/image', express.static(path.join(__dirname, 'image')));
 app.use(express.json());
+app.use(authRouter);
+const requireAdmin = requireRoles(['ADMIN']);
+app.get('/app-shell.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'appShell.js'));
+});
 
 // --- Routes ---
 const barcodeRoutes = require('./routes/barcode');
 app.use(barcodeRoutes);
 const arnTraceabilityRoutes = require('./routes/arnTraceability');
-app.use('/arn', arnTraceabilityRoutes);
+app.use('/arn', requireRoles(['OPERATOR', 'SUPERVISOR', 'ADMIN']), arnTraceabilityRoutes);
 const printerSetupRoutes = require('./routes/printerSetup');
 app.use(printerSetupRoutes);
 // Read-only management history for Standard product labels and ARN cartons.
@@ -319,7 +327,7 @@ app.post('/submit-data', async (req, res) => {
 });
 
 // Re-send the exact saved ARN payload without touching its part sequence.
-app.post('/retry-arn-print', async (req, res) => {
+app.post('/retry-arn-print', requireRoles(['OPERATOR', 'SUPERVISOR', 'ADMIN']), async (req, res) => {
     let connection;
     let transactionOpen = false;
     let retryHistoryId = '';
@@ -433,7 +441,7 @@ app.post('/retry-arn-print', async (req, res) => {
 });
 
 // --- Route to fetch and display data ---
-app.get('/fetch-data', async (req, res) => {
+app.get('/fetch-data', requireAdmin, async (req, res) => {
     let connection;
     try {
         connection = await db.getConnection();

@@ -6,25 +6,13 @@
     <meta http-equiv="Cache-Control" content="no-store">
     <meta name="theme-color" content="#f8f9ff">
     <title>Printer Setup &amp; Device Management | ACTMAX</title>
+    <link rel="stylesheet" href="/css/app-shell.css">
     <link rel="stylesheet" href="/css/printer-setup.css">
+    <script src="/app-shell.js" defer></script>
     <script src="/printer-setup.js" defer></script>
 </head>
 <body>
-    <header class="topbar">
-        <a class="brand" href="/" aria-label="ACTMAX Traceability System home">
-            <span class="brand-mark" aria-hidden="true">▦</span>
-            <span class="brand-name">ACTMAX</span>
-            <span class="brand-tag">TRACE</span>
-        </a>
-        <nav class="main-nav" aria-label="Main navigation">
-            <a href="/">Workstation Hub</a>
-            <a href="/arn/setup">Packaging Workflow</a>
-            <a class="current" href="/printer-setup" aria-current="page">Printers &amp; Devices</a>
-            <a href="/dashboard">Records / Database</a>
-        </nav>
-        <span id="headerConfigCount" class="header-status">LOADING PRINTERS</span>
-        <a class="user-placeholder" href="/" aria-label="Return to workstation hub">›</a>
-    </header>
+    <div id="app-shell"></div>
 
     <main class="page-content">
         <section class="page-intro">
@@ -81,7 +69,7 @@
             <strong>Assignment behavior</strong>
             <span>A printer can serve only one workflow. Assigning it to a different workflow automatically leaves its former workflow or printer unassigned. An unassigned workflow cannot print. ARN routing cannot be changed while an MO/station lock or unfinished carton exists.</span>
         </aside>
-        <p class="security-note">This setup page is not access-controlled yet. Until authentication is added, anyone who can reach the application can change workflow assignments.</p>
+        <p class="security-note">Printer assignment changes are restricted to the Admin role. Sign-in uses shared role passwords, so access is intended for the trusted company network only.</p>
     </main>
 
     <footer class="page-footer">

@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function startWorkflow() {
         const alert = document.getElementById(page === 'setup' ? 'setupAlert' : 'scanAlert');
         try {
-            const result = await api('/api/printer-setup/assignments');
+            const result = await api('/api/workflow-printers');
             const assignment = result.assignments && result.assignments.ARN;
             if (!assignment || !assignment.printerLetter) {
                 throw new Error('No printer is assigned to the ARN workflow. Open Printer Setup to assign one.');
