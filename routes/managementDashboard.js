@@ -80,6 +80,17 @@ function addAnyContainsFilter(where, parameters, columns, value) {
     for (const unusedColumn of columns) parameters.push('%' + value + '%');
 }
 
+// mysql2 sends JavaScript numbers as DOUBLE in prepared statements. MySQL
+// expects integer-compatible LIMIT/OFFSET values, so pass these validated values as decimal strings.
+// All user-entered filters remain parameter-bound.
+function paginationParameters(limit, offset) {
+    if (!Number.isSafeInteger(limit) || limit < 1 ||
+        !Number.isSafeInteger(offset) || offset < 0) {
+        throw new Error('Invalid dashboard pagination values.');
+    }
+    return [String(limit), String(offset)];
+}
+
 function makeCartonFilter(filters) {
     const where = [];
     const parameters = [];
@@ -249,7 +260,7 @@ router.get('/api/management-dashboard', async (req, res) => {
             const query = cartonSelect(cartonFilter, true);
             const [resultRows] = await connection.execute(
                 query.sql,
-                [...query.parameters, filters.pageSize, offset]
+                [...query.parameters, ...paginationParameters(filters.pageSize, offset)]
             );
             rows = resultRows;
         } else {
@@ -258,7 +269,8 @@ router.get('/api/management-dashboard', async (req, res) => {
                 `SELECT * FROM (${productUnion(standardFilter, arnFilter)}) AS product_records
                  ORDER BY eventAt DESC, recordId DESC
                  LIMIT ? OFFSET ?`,
-                [...standardFilter.parameters, ...arnFilter.parameters, filters.pageSize, offset]
+                [...standardFilter.parameters, ...arnFilter.parameters,
+                    ...paginationParameters(filters.pageSize, offset)]
             );
             rows = resultRows;
         }
@@ -342,7 +354,7 @@ async function streamQueryAsCsv(connection, baseSql, parameters, columns, res) {
     while (!res.destroyed) {
         const [rows] = await connection.execute(
             baseSql + ' LIMIT ? OFFSET ?',
-            [...parameters, EXPORT_BATCH_SIZE, offset]
+            [...parameters, ...paginationParameters(EXPORT_BATCH_SIZE, offset)]
         );
         if (rows.length === 0) return;
 
@@ -363,7 +375,7 @@ async function streamQueryAsExcel(connection, baseSql, parameters, columns, work
     while (!response.destroyed) {
         const [rows] = await connection.execute(
             baseSql + ' LIMIT ? OFFSET ?',
-            [...parameters, EXPORT_BATCH_SIZE, offset]
+            [...parameters, ...paginationParameters(EXPORT_BATCH_SIZE, offset)]
         );
         if (rows.length === 0) return;
 
@@ -434,7 +446,7 @@ router.get('/api/management-dashboard/export', async (req, res) => {
             };
 
             if (filters.view === 'cartons') {
-                const query = cartonSelect(cartonFilter, false);
+                const query = cartonSelect(cartonFilter);
                 await streamQueryAsExcel(
                     connection, query.sql, query.parameters,
                     excelColumns.map(([, key]) => key), worksheet, res
@@ -456,7 +468,7 @@ router.get('/api/management-dashboard/export', async (req, res) => {
         res.write('\uFEFF');
         if (filters.view === 'cartons') {
             res.write(csvRow(excelColumns.map(([header]) => header)));
-            const query = cartonSelect(cartonFilter, false);
+            const query = cartonSelect(cartonFilter);
             await streamQueryAsCsv(connection, query.sql, query.parameters, excelColumns.map(([, key]) => key), res);
         } else {
             res.write(csvRow(excelColumns.map(([header]) => header)));
