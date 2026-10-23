@@ -1,5 +1,4 @@
 const printerSettings = require('../config/printerSetting');
-const crypto = require('crypto');
 
 const WORKFLOWS = Object.freeze({
     STANDARD: Object.freeze({
@@ -130,8 +129,23 @@ async function getPrinterConfig(connection, value) {
     return serverConfig;
 }
 
-function createPrinterId() {
-    return 'PRINTER_CUSTOM_' + crypto.randomBytes(5).toString('hex').toUpperCase();
+function createPrinterId(existingIds = new Set()) {
+    // Keep user-added printer IDs short and readable. Application-configured
+    // printers retain their established A-D identifiers; added devices use
+    // 001, 002, etc.
+    let highestNumber = 0;
+    for (const existingId of existingIds) {
+        const match = /^PRINTER_(\d+)$/.exec(String(existingId || '').trim().toUpperCase());
+        if (match) highestNumber = Math.max(highestNumber, Number(match[1]));
+    }
+
+    let nextNumber = highestNumber + 1;
+    let printerId;
+    do {
+        printerId = 'PRINTER_' + String(nextNumber).padStart(3, '0');
+        nextNumber += 1;
+    } while (existingIds.has(printerId));
+    return printerId;
 }
 
 function toPublicAssignments(assignments, printers = getConfiguredPrinters()) {

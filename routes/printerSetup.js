@@ -144,8 +144,7 @@ router.post('/api/printer-setup/printers', requireRoles(['ADMIN']), async (req, 
         }
 
         const existingIds = new Set(printers.map(printer => printer.id));
-        let printerId = createPrinterId();
-        while (existingIds.has(printerId)) printerId = createPrinterId();
+        const printerId = createPrinterId(existingIds);
 
         await connection.execute(
             'INSERT INTO printer_devices (printer_id, printer_name, location, printer_model, ip_address, mac_address, tcp_port) ' +
@@ -349,6 +348,20 @@ router.post('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (re
                     message: 'The ARN printer cannot be reassigned while an ARN MO/station lock or an unfinished carton exists. Finish and unlock the MO first so its saved station state is not stranded.'
                 });
             }
+        }
+
+        // An ARN station is the persisted job/carton state for its assigned
+        // printer. Provision it as part of assigning the printer, rather than
+        // expecting an operator or administrator to create a database row.
+        const arnPrinterId = nextAssignments[WORKFLOWS.ARN.key];
+        if (arnPrinterId) {
+            await connection.execute(
+                'INSERT INTO arn_station_lock (printer_id) ' +
+                'SELECT ? WHERE NOT EXISTS (' +
+                'SELECT 1 FROM arn_station_lock WHERE printer_id = ?' +
+                ')',
+                [arnPrinterId, arnPrinterId]
+            );
         }
 
         await connection.execute('DELETE FROM workflow_printer_assignments');
