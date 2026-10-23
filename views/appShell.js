@@ -1,10 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
-    const mainPort = body.dataset.mainAppPort || (window.location.port && !['3005', '3006'].includes(window.location.port)
+    const mainPort = body.dataset.mainAppPort || (window.location.port && window.location.port !== '3005'
         ? window.location.port
         : '3003');
     const excelPort = body.dataset.excelAppPort || '3005';
-    const downloadPort = body.dataset.downloadAppPort || '3006';
     let currentRole = null;
     let lastFocus = null;
 
@@ -29,11 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isCurrentPage(key) {
         const path = window.location.pathname;
-        if (key === 'hub') return path === '/' && !['3005', '3006'].includes(window.location.port);
+        if (key === 'hub') return path === '/' && window.location.port !== '3005';
         if (key === 'dashboard') return path === '/dashboard';
         if (key === 'printer') return path.startsWith('/printer-setup');
         if (key === 'excel') return window.location.port === excelPort && path === '/';
-        if (key === 'download') return window.location.port === downloadPort && path === '/';
         if (key === 'arn') return path.startsWith('/arn/');
         if (key === 'standard') return path === '/standard';
         return false;
@@ -61,10 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         arn: makeLink('ARN Workflow', serviceUrl(mainPort, '/arn/setup'), 'arn'),
         excel: makeLink('Excel Upload', serviceUrl(excelPort, '/', { MainPort: mainPort }), 'excel'),
         printer: makeLink('Printer Setup', serviceUrl(mainPort, '/printer-setup'), 'printer'),
-        dashboard: makeLink('Dashboard', serviceUrl(mainPort, '/dashboard'), 'dashboard'),
-        download: makeLink('Data Export', serviceUrl(downloadPort, '/', { MainPort: mainPort }), 'download')
+        dashboard: makeLink('Dashboard', serviceUrl(mainPort, '/dashboard'), 'dashboard')
     };
-    nav.append(links.hub, links.standard, links.arn, links.excel, links.printer, links.download, links.dashboard);
+    nav.append(links.hub, links.standard, links.arn, links.excel, links.printer, links.dashboard);
 
     const account = document.createElement('div');
     account.className = 'app-shell-account';
@@ -120,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
         links.arn.hidden = !isSignedIn;
         links.excel.hidden = !canUpload;
         links.printer.hidden = !isAdmin;
-        links.download.hidden = !isAdmin;
         roleBadge.hidden = !isSignedIn;
         roleBadge.textContent = role ? role + ' ACCESS' : '';
         accountButton.textContent = isSignedIn ? 'Sign out' : 'Sign in';
@@ -144,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!requested) return null;
         try {
             const target = new URL(requested, window.location.origin);
-            const allowedPorts = new Set([String(mainPort), String(excelPort), String(downloadPort)]);
+            const allowedPorts = new Set([String(mainPort), String(excelPort)]);
             if (target.hostname !== window.location.hostname || target.protocol !== window.location.protocol) return null;
             if (target.origin !== window.location.origin &&
                 !allowedPorts.has(target.port || (target.protocol === 'https:' ? '443' : '80'))) return null;
@@ -165,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             const isProtectedPage = window.location.pathname.startsWith('/arn/') ||
                 window.location.pathname.startsWith('/printer-setup') ||
-                window.location.port === excelPort || window.location.port === downloadPort;
+                window.location.port === excelPort;
             if (isProtectedPage) window.location.assign(serviceUrl(mainPort, '/'));
             else window.location.reload();
         }
