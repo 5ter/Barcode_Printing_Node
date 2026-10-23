@@ -7,7 +7,6 @@ const router = express.Router();
 const ASSET_DIRECTORY = path.join(__dirname, '..', 'views', 'management-dashboard-assets');
 const MAX_PAGE_SIZE = 100;
 const EXPORT_BATCH_SIZE = 1000;
-const VALID_PRINTERS = new Set(['PRINTER_A', 'PRINTER_B', 'PRINTER_C', 'PRINTER_D']);
 
 router.use('/dashboard-assets', express.static(ASSET_DIRECTORY));
 
@@ -32,7 +31,7 @@ function readFilters(query) {
     }
 
     const printer = String(query.printer || '').trim().toUpperCase();
-    if (printer && !VALID_PRINTERS.has(printer)) {
+    if (printer && !/^PRINTER_[A-Z0-9][A-Z0-9_-]{0,35}$/.test(printer)) {
         return { error: 'Choose a valid printer.' };
     }
 

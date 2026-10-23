@@ -19,11 +19,16 @@
             <div class="intro-copy">
                 <div class="eyebrow">WORKFLOW ROUTING <span>•</span> HARDWARE LAYER</div>
                 <h1>Printer Setup &amp; Device Management</h1>
-                <p>Review the configured printer fleet and assign a workflow from that printer’s edit panel. Printer network settings remain managed on the server.</p>
+                <p>Review the configured printer fleet, record where each printer is placed, edit its connection details, and assign its workflow.</p>
             </div>
-            <button id="refreshPrinters" class="button button-secondary" type="button">
-                <span aria-hidden="true">↻</span> Refresh Printer List
-            </button>
+            <div class="page-actions">
+                <button id="refreshPrinters" class="button button-secondary" type="button">
+                    <span aria-hidden="true">↻</span> Refresh Printer List
+                </button>
+                <button id="addPrinter" class="button button-primary" type="button">
+                    <span aria-hidden="true">+</span> Add New Printer
+                </button>
+            </div>
         </section>
 
         <div id="setupMessage" class="message" role="status" aria-live="polite"></div>
@@ -74,8 +79,67 @@
 
     <footer class="page-footer">
         <span>ACTMAX INDUSTRIAL TRACEABILITY SYSTEM</span>
-        <span>Only server-configured printers are shown; health and diagnostic status are not reported by this application.</span>
+                <span>Registered printers are shown; the application does not currently report live hardware health.</span>
     </footer>
+
+    <div id="addPrinterBackdrop" class="drawer-shell" hidden>
+        <button id="addPrinterBackdropButton" class="drawer-backdrop" type="button" aria-label="Close add printer panel"></button>
+        <aside id="addPrinterDrawer" class="edit-drawer" role="dialog" aria-modal="true" aria-labelledby="addPrinterTitle" tabindex="-1">
+            <div class="drawer-header">
+                <div class="drawer-heading">
+                    <span class="drawer-icon" aria-hidden="true">+</span>
+                    <div>
+                        <div class="drawer-title-row">
+                            <h2 id="addPrinterTitle">Add New Printer</h2>
+                            <span class="edit-badge">NEW DEVICE</span>
+                        </div>
+                        <p>Register a printer for use by this application.</p>
+                    </div>
+                </div>
+                <button id="closeAddPrinter" class="icon-button" type="button" aria-label="Close add printer panel">&times;</button>
+            </div>
+            <div class="drawer-content">
+                <form id="addPrinterForm" class="add-printer-form">
+                    <label class="form-field" for="newPrinterName">
+                        <span>Printer name <strong>*</strong></span>
+                        <input id="newPrinterName" name="name" type="text" maxlength="120" autocomplete="off" required placeholder="e.g. Test Line SATO Printer">
+                        <small>Shown to administrators when choosing a printer.</small>
+                    </label>
+                    <label class="form-field" for="newPrinterModel">
+                        <span>Printer model</span>
+                        <input id="newPrinterModel" name="model" type="text" maxlength="120" autocomplete="off" placeholder="e.g. SATO CL4NX Plus">
+                    </label>
+                    <label class="form-field" for="newPrinterLocation">
+                        <span>Printer location</span>
+                        <input id="newPrinterLocation" name="location" type="text" maxlength="160" autocomplete="off" placeholder="e.g. Packing Line 04, Station A">
+                    </label>
+                    <div class="form-grid">
+                        <label class="form-field" for="newPrinterIp">
+                            <span>IPv4 address <strong>*</strong></span>
+                            <input id="newPrinterIp" name="ipAddress" type="text" inputmode="decimal" maxlength="45" autocomplete="off" required placeholder="192.168.40.120">
+                        </label>
+                        <label class="form-field" for="newPrinterPort">
+                            <span>TCP port <strong>*</strong></span>
+                            <input id="newPrinterPort" name="port" type="number" min="1" max="65535" value="9100" required>
+                        </label>
+                    </div>
+                    <label class="form-field" for="newPrinterMac">
+                        <span>MAC address <small>(optional)</small></span>
+                        <input id="newPrinterMac" name="macAddress" type="text" maxlength="17" autocomplete="off" placeholder="00:07:4D:2E:8A:14">
+                    </label>
+                    <div class="assignment-warning" role="note">
+                        <strong>Added as Unassigned</strong>
+                        <span>Adding this device will not change production routing. Assign it to a workflow explicitly from its printer card when it is safe to test. The current label sender uses SBPL over TCP.</span>
+                    </div>
+                    <div id="addPrinterError" class="drawer-error" role="alert" hidden></div>
+                    <div class="drawer-actions">
+                        <button id="cancelAddPrinter" class="button button-secondary" type="button">Cancel</button>
+                        <button id="saveNewPrinter" class="button button-primary" type="submit">Add Printer</button>
+                    </div>
+                </form>
+            </div>
+        </aside>
+    </div>
 
     <div id="printerEditBackdrop" class="drawer-shell" hidden>
         <button id="drawerBackdrop" class="drawer-backdrop" type="button" aria-label="Close printer edit panel"></button>
@@ -85,10 +149,10 @@
                     <span class="drawer-icon" aria-hidden="true">⚙</span>
                     <div>
                         <div class="drawer-title-row">
-                            <h2 id="editDrawerTitle">Edit Printer Assignment</h2>
+                            <h2 id="editDrawerTitle">Edit Printer</h2>
                             <span class="edit-badge">ACTIVE EDIT</span>
                         </div>
-                        <p>Change the workflow routed to this configured printer.</p>
+                        <p>Update its hardware record and, separately, its assigned workflow.</p>
                     </div>
                 </div>
                 <button id="closeDrawer" class="icon-button" type="button" aria-label="Close edit panel">×</button>
@@ -97,12 +161,48 @@
             <div class="drawer-content">
                 <div class="selected-printer">
                     <span class="field-label">SELECTED PRINTER</span>
+                    <button id="restorePrinterDefaults" class="restore-defaults-button" type="button" hidden>Restore server-configured values</button>
                     <strong id="editPrinterName">—</strong>
                     <code id="editPrinterId">—</code>
                     <span id="editPrinterPort" class="printer-port">TCP port —</span>
                 </div>
 
-                <form id="printerEditForm">
+                <form id="printerEditForm" class="edit-printer-form">
+                    <fieldset class="device-fields">
+                        <legend>Printer Information</legend>
+                        <label class="form-field" for="editPrinterNameInput">
+                            <span>Printer name <strong>*</strong></span>
+                            <input id="editPrinterNameInput" name="name" type="text" maxlength="120" required autocomplete="off">
+                        </label>
+                        <div class="form-grid">
+                            <label class="form-field" for="editPrinterModelInput">
+                                <span>Printer model</span>
+                                <input id="editPrinterModelInput" name="model" type="text" maxlength="120" autocomplete="off">
+                            </label>
+                            <label class="form-field" for="editPrinterLocationInput">
+                                <span>Printer location</span>
+                                <input id="editPrinterLocationInput" name="location" type="text" maxlength="160" autocomplete="off" placeholder="e.g. Packing Line 04, Station A">
+                            </label>
+                        </div>
+                        <label class="form-field" for="editPrinterIpInput">
+                            <span>IPv4 address <strong>*</strong></span>
+                            <input id="editPrinterIpInput" name="ipAddress" type="text" inputmode="decimal" maxlength="45" required autocomplete="off">
+                        </label>
+                        <div class="form-grid">
+                            <label class="form-field" for="editPrinterMacInput">
+                                <span>MAC address <small>(optional)</small></span>
+                                <input id="editPrinterMacInput" name="macAddress" type="text" maxlength="17" autocomplete="off" placeholder="00:07:4D:2E:8A:14">
+                            </label>
+                            <label class="form-field" for="editPrinterPortInput">
+                                <span>TCP port <strong>*</strong></span>
+                                <input id="editPrinterPortInput" name="port" type="number" min="1" max="65535" required>
+                            </label>
+                        </div>
+                    </fieldset>
+                    <div class="assignment-warning" role="note">
+                        <strong>Connection changes affect future jobs</strong>
+                        <span>Changing the IP address or port on an assigned printer redirects that workflow’s next print to the new endpoint. Saving printer information does not change its workflow assignment. Edits to A-D are stored as database overrides; use Restore server-configured values to undo them.</span>
+                    </div>
                     <fieldset class="workflow-options">
                         <legend>Assigned Workflow Pipeline</legend>
                         <label class="workflow-option">
@@ -122,7 +222,8 @@
                     <div id="drawerError" class="drawer-error" role="alert" hidden></div>
                     <div class="drawer-actions">
                         <button id="cancelEdit" class="button button-secondary" type="button">Cancel</button>
-                        <button id="savePrinterAssignment" class="button button-primary" type="submit">Save Assignment</button>
+                        <button id="savePrinterDetails" class="button button-secondary" type="submit" name="editAction" value="details">Save Printer Details</button>
+                        <button id="savePrinterAssignment" class="button button-primary" type="submit" name="editAction" value="assignment">Save Assignment</button>
                     </div>
                 </form>
             </div>

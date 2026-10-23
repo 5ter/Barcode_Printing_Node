@@ -50,6 +50,7 @@ h1 { margin: 0; color: #101f34; font-size: clamp(27px, 2.7vw, 36px); letter-spac
 .button-primary { background: var(--primary); color: #fff; }
 .button-primary:hover:not(:disabled) { background: var(--primary-dark); }
 .button:disabled { cursor: not-allowed; opacity: .56; }
+.page-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 9px; }
 .message { display: none; margin: 0 0 14px; padding: 11px 13px; border: 1px solid #bfd7ff; border-radius: 4px; background: #eef5ff; color: #244b88; font-size: 13px; }
 .message.visible { display: block; }
 .message.error { border-color: #f2c9c5; background: #fff1ef; color: #a62920; }
@@ -97,7 +98,7 @@ h1 { margin: 0; color: #101f34; font-size: clamp(27px, 2.7vw, 36px); letter-spac
 .workflow-badge { max-width: 100%; padding: 5px 8px; background: #e9f8f0; color: #096345; font-size: 11px; text-align: right; }
 .workflow-badge.arn { background: #e8efff; color: #1648a0; }
 .workflow-badge.unassigned { background: #edf1fa; color: #59657c; }
-.printer-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 12px 0 11px; padding: 10px 12px; border-radius: 4px; background: #f0f4ff; }
+.printer-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin: 12px 0 11px; padding: 10px 12px; border-radius: 4px; background: #f0f4ff; }
 .printer-detail { min-width: 0; }
 .printer-detail-label { display: block; margin-bottom: 3px; color: #5d6880; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
 .printer-detail-value { display: block; overflow-wrap: anywhere; color: #172942; font: 600 12px var(--mono); }
@@ -127,12 +128,29 @@ h1 { margin: 0; color: #101f34; font-size: clamp(27px, 2.7vw, 36px); letter-spac
 .icon-button { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; border: 0; border-radius: 50%; background: transparent; color: #5f6a7e; font-size: 24px; }
 .icon-button:hover { background: #e8edf6; color: #17263c; }
 .drawer-content { overflow-y: auto; padding: 20px; }
+.add-printer-form { display: grid; gap: 15px; }
+.edit-printer-form { display: grid; gap: 15px; }
+.device-fields { display: grid; gap: 13px; margin: 0; padding: 0; border: 0; }
+.device-fields legend { margin-bottom: 1px; color: #46536a; font: 700 10px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+.form-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(110px, .75fr); gap: 12px; }
+.form-field { min-width: 0; display: grid; gap: 6px; color: #46536a; font-size: 11px; font-weight: 700; }
+.form-field > span { font: 700 10px var(--mono); letter-spacing: .045em; text-transform: uppercase; }
+.form-field > span strong { color: #ad332b; }
+.form-field > span small { color: #778195; font: 500 10px "Hanken Grotesk", "Segoe UI", Arial, sans-serif; text-transform: none; letter-spacing: 0; }
+.form-field input { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; background: #f8faff; color: #17263c; font-size: 13px; }
+.form-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px #dce8ff; background: #fff; }
+.form-field > small { color: #667287; font-size: 11px; font-weight: 400; line-height: 1.4; }
+.assignment-warning { display: grid; gap: 5px; padding: 12px; border: 1px solid #f1dba4; border-radius: 4px; background: #fff9e9; color: #705219; font-size: 11px; line-height: 1.5; }
+.assignment-warning strong { font: 700 10px var(--mono); letter-spacing: .05em; text-transform: uppercase; }
 .selected-printer { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; margin-bottom: 22px; padding: 13px 14px; border: 1px solid #e0e7f1; border-radius: 5px; background: #f8faff; }
 .selected-printer .field-label { grid-column: 1 / -1; color: #667287; font-size: 9px; font-weight: 700; letter-spacing: .08em; }
 .selected-printer strong { color: #17263c; font-size: 14px; }
 .selected-printer code, .printer-port { color: #58657d; font: 500 10px var(--mono); }
 .selected-printer code { grid-column: 1; }
-.printer-port { grid-column: 2; grid-row: 2 / span 2; text-align: right; }
+.printer-port { grid-column: 2; text-align: right; }
+.restore-defaults-button { grid-column: 1 / -1; justify-self: start; padding: 4px 0; border: 0; background: transparent; color: #164fbd; font-size: 11px; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+.restore-defaults-button:hover:not(:disabled) { color: #0d347f; }
+.restore-defaults-button:disabled { cursor: wait; opacity: .6; }
 .workflow-options { display: grid; gap: 9px; margin: 0; padding: 0; border: 0; }
 .workflow-options legend { margin-bottom: 10px; color: #46536a; font: 700 10px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
 .workflow-option { min-height: 67px; display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid #e1e7f0; border-radius: 5px; background: #f8faff; cursor: pointer; }
@@ -159,6 +177,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 @media (max-width: 760px) {
     .page-content { width: calc(100% - 24px); padding-top: 20px; }
     .page-intro, .inventory-toolbar { align-items: stretch; flex-direction: column; }
+    .page-actions { justify-content: flex-start; }
     .page-intro .button { align-self: flex-start; }
     .inventory-toolbar { gap: 10px; }
     .search-box { width: 100%; min-width: 0; }
@@ -185,4 +204,5 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
     .drawer-content { padding: 15px; }
     .drawer-header { padding-inline: 15px; }
     .drawer-actions .button { flex: 1; }
+    .form-grid { grid-template-columns: 1fr; }
 }

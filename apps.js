@@ -6,7 +6,7 @@ const path = require('path'); // Required for resolving paths
 // --- Configuration Imports ---
 const config = require('./config/printerSetting'); 
 const PORT = config.PORT; 
-const { getAssignedPrinterId } = require('./utils/workflowPrinterAssignments');
+const { getAssignedPrinterId, getPrinterConfig } = require('./utils/workflowPrinterAssignments');
 
 // --- NEW: Import the custom logger utility ---
 const logger = require('./utils/logger'); 
@@ -159,7 +159,7 @@ app.post('/submit-data', async (req, res) => {
             });
         }
         logger.log('- printer_ID: ' + printerId);
-        const printerConfig = config.getPrinterConfig(printerId);
+        const printerConfig = await getPrinterConfig(connection, printerId);
         if (!printerConfig) {
             logger.error('Printer configuration for ID ' + printerId + ' not found.');
             await connection.rollback();
@@ -369,7 +369,7 @@ app.post('/retry-arn-print', requireRoles(['OPERATOR', 'SUPERVISOR', 'ADMIN']), 
             });
         }
 
-        const printerConfig = config.getPrinterConfig(job.printer_id);
+        const printerConfig = await getPrinterConfig(connection, job.printer_id);
         if (!printerConfig) {
             await connection.rollback();
             transactionOpen = false;

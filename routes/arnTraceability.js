@@ -1,13 +1,12 @@
 const express = require('express');
 const path = require('path');
 const db = require('../db/root');
-const printerSettings = require('../config/printerSetting');
 const logger = require('../utils/logger');
 const getWWYY = require('../utils/dateTime');
 const { printLabel_arn } = require('../utils/printer');
 const { generateArnLabel } = require('../utils/arn_label');
 const arnLabelSettings = require('../config/arnLabelSetting');
-const { getAssignedPrinterId } = require('../utils/workflowPrinterAssignments');
+const { getAssignedPrinterId, getPrinterConfig } = require('../utils/workflowPrinterAssignments');
 
 const router = express.Router();
 const setupPage = path.join(__dirname, '..', 'views', 'arn', 'setup.html');
@@ -168,12 +167,12 @@ async function createPendingPrintJob(connection, carton, actualQuantity) {
 }
 
 async function transmitPrintJob(job) {
-    const printerConfig = printerSettings.getPrinterConfig(job.printerId);
     let connection;
     try {
+        connection = await db.getConnection();
+        const printerConfig = await getPrinterConfig(connection, job.printerId);
         if (!printerConfig) throw new Error('Printer configuration for ' + job.printerId + ' is missing.');
         await printLabel_arn(job.labelPayload, printerConfig.IP, printerConfig.PORT);
-        connection = await db.getConnection();
         await connection.execute(
             'UPDATE arn_label_print_history SET print_status = ?, last_error = NULL WHERE id = ?',
             ['SENT', job.historyId]

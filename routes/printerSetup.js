@@ -1,17 +1,77 @@
 const express = require('express');
+const net = require('net');
 const path = require('path');
 const db = require('../db/root');
+const printerSettings = require('../config/printerSetting');
 const logger = require('../utils/logger');
 const { requireRoles } = require('../utils/auth');
 const {
     WORKFLOWS,
     normalizePrinterId,
     loadWorkflowPrinterAssignments,
-    getConfiguredPrinters,
+    loadConfiguredPrinters,
+    createPrinterId,
     toPublicAssignments
 } = require('../utils/workflowPrinterAssignments');
 
 const router = express.Router();
+
+function readPrinterDetails(body) {
+    const name = String(body.name || '').trim();
+    const model = String(body.model || '').trim();
+    const location = String(body.location || '').trim();
+    const ipAddress = String(body.ipAddress || '').trim();
+    const suppliedMacAddress = String(body.macAddress || '').trim();
+    const macAddress = suppliedMacAddress ? suppliedMacAddress.replace(/-/g, ':').toUpperCase() : null;
+    const port = Number(body.port);
+
+    if (!name || name.length > 120 || /[\x00-\x1F\x7F]/.test(name)) {
+        return { error: 'Enter a printer name of 1 to 120 characters.' };
+    }
+    if (model.length > 120) {
+        return { error: 'Printer model must be 120 characters or fewer.' };
+    }
+    if (location.length > 160 || /[\x00-\x1F\x7F]/.test(location)) {
+        return { error: 'Printer location must be 160 characters or fewer.' };
+    }
+    if (net.isIP(ipAddress) !== 4) {
+        return { error: 'Enter a valid IPv4 address for the printer.' };
+    }
+    if (macAddress && !/^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/.test(macAddress)) {
+        return { error: 'Enter a valid MAC address or leave it blank.' };
+    }
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return { error: 'TCP port must be a number from 1 to 65535.' };
+    }
+
+    return {
+        values: {
+            name,
+            model,
+            location,
+            ipAddress,
+            macAddress,
+            port
+        }
+    };
+}
+
+async function arnWorkflowHasActiveWork(connection, printerId) {
+    const [assignmentRows] = await connection.execute(
+        'SELECT printer_id FROM workflow_printer_assignments WHERE workflow_key = ?',
+        [WORKFLOWS.ARN.key]
+    );
+    const assignedPrinterId = assignmentRows.length ? normalizePrinterId(assignmentRows[0].printer_id) : null;
+    if (assignedPrinterId !== printerId) return false;
+
+    const [activeRows] = await connection.execute(
+        'SELECT ' +
+            '(SELECT COUNT(*) FROM arn_station_lock WHERE printer_id = ? AND mo IS NOT NULL) + ' +
+            '(SELECT COUNT(*) FROM arn_cartons WHERE printer_id = ? AND status IN (?, ?, ?)) AS active_count',
+        [printerId, printerId, 'OPEN', 'PRINTING', 'PRINT_FAILED']
+    );
+    return Number(activeRows[0] && activeRows[0].active_count || 0) > 0;
+}
 
 router.get('/printer-setup', requireRoles(['ADMIN']), (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -24,8 +84,9 @@ router.get('/api/workflow-printers', async (req, res) => {
     let connection;
     try {
         connection = await db.getConnection();
+        const printers = await loadConfiguredPrinters(connection);
         const assignments = await loadWorkflowPrinterAssignments(connection);
-        const publicAssignments = toPublicAssignments(assignments);
+        const publicAssignments = toPublicAssignments(assignments, printers);
         return res.json({
             status: 'success',
             assignments: Object.fromEntries(Object.entries(publicAssignments).map(([key, value]) => [key, {
@@ -48,17 +109,185 @@ router.get('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (req
     let connection;
     try {
         connection = await db.getConnection();
+        const printers = await loadConfiguredPrinters(connection);
         const assignments = await loadWorkflowPrinterAssignments(connection);
         return res.json({
             status: 'success',
-            printers: getConfiguredPrinters(),
-            assignments: toPublicAssignments(assignments)
+            printers,
+            assignments: toPublicAssignments(assignments, printers)
         });
     } catch (error) {
         logger.error('Could not load workflow printer assignments:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'Could not load printer assignments. Confirm the workflow_printer_assignments migration has been applied.'
+            message: 'Could not load printer inventory. Confirm the workflow assignment and printer-device migrations have been applied.'
+        });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+router.post('/api/printer-setup/printers', requireRoles(['ADMIN']), async (req, res) => {
+    const parsed = readPrinterDetails(req.body || {});
+    if (parsed.error) return res.status(400).json({ status: 'error', message: parsed.error });
+    const { name, model, location, ipAddress, macAddress, port } = parsed.values;
+
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const printers = await loadConfiguredPrinters(connection);
+        if (printers.some(printer => printer.ipAddress === ipAddress && Number(printer.port) === port)) {
+            return res.status(409).json({
+                status: 'error',
+                message: 'A printer with this IP address and TCP port is already configured.'
+            });
+        }
+
+        const existingIds = new Set(printers.map(printer => printer.id));
+        let printerId = createPrinterId();
+        while (existingIds.has(printerId)) printerId = createPrinterId();
+
+        await connection.execute(
+            'INSERT INTO printer_devices (printer_id, printer_name, location, printer_model, ip_address, mac_address, tcp_port) ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [printerId, name, location || null, model || null, ipAddress, macAddress, port]
+        );
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Printer added as Unassigned. Use Edit Printer to route it when ready.',
+            printer: {
+                id: printerId,
+                letter: printerId.replace(/^PRINTER_/, ''),
+                name,
+                model,
+                location,
+                ipAddress,
+                macAddress: macAddress || '',
+                port
+            }
+        });
+    } catch (error) {
+        logger.error('Could not add printer device:', error);
+        if (error.code === 'ER_DUP_ENTRY' || error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).json({ status: 'error', message: 'That printer or network endpoint is already registered.' });
+        }
+        return res.status(500).json({
+            status: 'error',
+            message: 'Could not add printer. Confirm the printer-device migrations have been applied.'
+        });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), async (req, res) => {
+    const printerId = normalizePrinterId(req.params.printerId);
+    if (!printerId) {
+        return res.status(400).json({ status: 'error', message: 'Choose a valid printer.' });
+    }
+    const parsed = readPrinterDetails(req.body || {});
+    if (parsed.error) return res.status(400).json({ status: 'error', message: parsed.error });
+    const { name, model, location, ipAddress, macAddress, port } = parsed.values;
+
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const printers = await loadConfiguredPrinters(connection);
+        if (!printers.some(printer => printer.id === printerId)) {
+            return res.status(404).json({ status: 'error', message: 'That printer is no longer in the configured inventory.' });
+        }
+        if (printers.some(printer => printer.id !== printerId && printer.ipAddress === ipAddress && Number(printer.port) === port)) {
+            return res.status(409).json({
+                status: 'error',
+                message: 'Another configured printer already uses this IP address and TCP port.'
+            });
+        }
+
+        const currentPrinter = printers.find(printer => printer.id === printerId);
+        const connectionChanged = currentPrinter.ipAddress !== ipAddress || Number(currentPrinter.port) !== port;
+        if (connectionChanged && await arnWorkflowHasActiveWork(connection, printerId)) {
+            return res.status(409).json({
+                status: 'error',
+                message: 'The ARN printer network address cannot be changed while an ARN MO/station lock or unfinished carton exists. Finish and unlock the MO first.'
+            });
+        }
+
+        await connection.execute(
+            'INSERT INTO printer_devices (printer_id, printer_name, location, printer_model, ip_address, mac_address, tcp_port) ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?) ' +
+            'ON DUPLICATE KEY UPDATE printer_name = VALUES(printer_name), location = VALUES(location), ' +
+            'printer_model = VALUES(printer_model), ip_address = VALUES(ip_address), ' +
+            'mac_address = VALUES(mac_address), tcp_port = VALUES(tcp_port)',
+            [printerId, name, location || null, model || null, ipAddress, macAddress, port]
+        );
+
+        return res.json({
+            status: 'success',
+            message: 'Printer details saved. Its workflow assignment was not changed.',
+            printer: {
+                id: printerId,
+                letter: printerId.replace(/^PRINTER_/, ''),
+                name,
+                model,
+                location,
+                ipAddress,
+                macAddress: macAddress || '',
+                port
+            }
+        });
+    } catch (error) {
+        logger.error('Could not update printer details:', error);
+        if (error.code === 'ER_DUP_ENTRY' || error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).json({ status: 'error', message: 'Another printer already uses this network endpoint.' });
+        }
+        return res.status(500).json({
+            status: 'error',
+            message: 'Could not update printer details. Confirm the printer_devices location migration has been applied.'
+        });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+router.delete('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), async (req, res) => {
+    const printerId = normalizePrinterId(req.params.printerId);
+    if (!printerId || !printerSettings.getPrinterConfig(printerId)) {
+        return res.status(400).json({ status: 'error', message: 'Only server-defined printers can restore server values.' });
+    }
+
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const printers = await loadConfiguredPrinters(connection);
+        const currentPrinter = printers.find(printer => printer.id === printerId);
+        const serverPrinter = printerSettings.getPrinterConfig(printerId);
+        if (printers.some(printer => printer.id !== printerId && printer.ipAddress === serverPrinter.IP &&
+            Number(printer.port) === Number(serverPrinter.PORT))) {
+            return res.status(409).json({
+                status: 'error',
+                message: 'The server-configured IP address and port are already in use by another configured printer.'
+            });
+        }
+        if (currentPrinter && (currentPrinter.ipAddress !== serverPrinter.IP ||
+            Number(currentPrinter.port) !== Number(serverPrinter.PORT)) &&
+            await arnWorkflowHasActiveWork(connection, printerId)) {
+            return res.status(409).json({
+                status: 'error',
+                message: 'The ARN printer cannot be restored to its server address while an ARN MO/station lock or unfinished carton exists.'
+            });
+        }
+
+        await connection.execute('DELETE FROM printer_devices WHERE printer_id = ?', [printerId]);
+        return res.json({
+            status: 'success',
+            message: 'The printer has been restored to its server-configured values. Its workflow assignment was not changed.'
+        });
+    } catch (error) {
+        logger.error('Could not restore printer defaults:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Could not restore server printer values. Confirm the printer-device migrations have been applied.'
         });
     } finally {
         if (connection) connection.release();
@@ -80,6 +309,10 @@ router.post('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (re
     let transactionOpen = false;
     try {
         connection = await db.getConnection();
+        const printers = await loadConfiguredPrinters(connection);
+        if (!printers.some(printer => printer.id === printerId)) {
+            return res.status(400).json({ status: 'error', message: 'Choose a printer that is present in the configured inventory.' });
+        }
         await connection.beginTransaction();
         transactionOpen = true;
 
@@ -133,7 +366,7 @@ router.post('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (re
         return res.json({
             status: 'success',
             message: 'Printer workflow assignment saved.',
-            assignments: toPublicAssignments(nextAssignments)
+            assignments: toPublicAssignments(nextAssignments, printers)
         });
     } catch (error) {
         if (connection && transactionOpen) await connection.rollback();

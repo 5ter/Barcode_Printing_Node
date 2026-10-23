@@ -1,4 +1,5 @@
 const printerSettings = require('../config/printerSetting');
+const crypto = require('crypto');
 
 const WORKFLOWS = Object.freeze({
     STANDARD: Object.freeze({
@@ -16,9 +17,7 @@ const WORKFLOWS = Object.freeze({
 function normalizePrinterId(value) {
     const rawValue = String(value || '').trim().toUpperCase();
     const printerId = rawValue.startsWith('PRINTER_') ? rawValue : 'PRINTER_' + rawValue;
-    return Object.prototype.hasOwnProperty.call(printerSettings.PRINTERS, printerId)
-        ? printerId
-        : null;
+    return /^PRINTER_[A-Z0-9][A-Z0-9_-]{0,35}$/.test(printerId) ? printerId : null;
 }
 
 async function loadWorkflowPrinterAssignments(connection) {
@@ -59,12 +58,84 @@ function getConfiguredPrinters() {
         id,
         letter: id.replace(/^PRINTER_/, ''),
         name: config.NAME,
-        port: Number(config.PORT) || 9100
+        model: config.MODEL || '',
+        ipAddress: config.IP,
+        macAddress: config.MAC || '',
+        port: Number(config.PORT) || 9100,
+        location: '',
+        isApplicationPrinter: true,
+        source: 'application'
     }));
 }
 
-function toPublicAssignments(assignments) {
-    const printersById = new Map(getConfiguredPrinters().map(printer => [printer.id, printer]));
+async function loadConfiguredPrinters(connection) {
+    const printers = getConfiguredPrinters();
+    const printerIndexes = new Map(printers.map((printer, index) => [printer.id, index]));
+    const [rows] = await connection.execute(
+        'SELECT printer_id, printer_name, location, printer_model, ip_address, mac_address, tcp_port ' +
+        'FROM printer_devices ORDER BY created_at, printer_id'
+    );
+    for (const row of rows) {
+        const id = normalizePrinterId(row.printer_id);
+        if (!id) continue;
+        const printer = {
+            id,
+            letter: id.replace(/^PRINTER_/, ''),
+            name: String(row.printer_name || id),
+            model: String(row.printer_model || ''),
+            ipAddress: String(row.ip_address || ''),
+            macAddress: String(row.mac_address || ''),
+            port: Number(row.tcp_port) || 9100,
+            location: String(row.location || ''),
+            isApplicationPrinter: printerIndexes.has(id),
+            source: 'database'
+        };
+        if (printerIndexes.has(id)) printers[printerIndexes.get(id)] = printer;
+        else {
+            printerIndexes.set(id, printers.length);
+            printers.push(printer);
+        }
+    }
+    return printers;
+}
+
+async function getPrinterConfig(connection, value) {
+    const printerId = normalizePrinterId(value);
+    if (!printerId) return null;
+    const serverConfig = printerSettings.getPrinterConfig(printerId);
+    let rows;
+    try {
+        [rows] = await connection.execute(
+            'SELECT printer_id, printer_name, printer_model, ip_address, mac_address, tcp_port ' +
+            'FROM printer_devices WHERE printer_id = ? LIMIT 1',
+            [printerId]
+        );
+    } catch (error) {
+        // Keep the established A-D printer path available if the optional
+        // database override table is unavailable during a deployment.
+        if (serverConfig) return serverConfig;
+        throw error;
+    }
+    if (rows.length) {
+        const row = rows[0];
+        return {
+            ID: row.printer_id,
+            NAME: row.printer_name,
+            MODEL: row.printer_model,
+            IP: row.ip_address,
+            MAC: row.mac_address,
+            PORT: Number(row.tcp_port) || 9100
+        };
+    }
+    return serverConfig;
+}
+
+function createPrinterId() {
+    return 'PRINTER_CUSTOM_' + crypto.randomBytes(5).toString('hex').toUpperCase();
+}
+
+function toPublicAssignments(assignments, printers = getConfiguredPrinters()) {
+    const printersById = new Map(printers.map(printer => [printer.id, printer]));
     const publicAssignments = {};
     for (const workflow of Object.values(WORKFLOWS)) {
         const printerId = assignments[workflow.key] || null;
@@ -87,5 +158,8 @@ module.exports = {
     loadWorkflowPrinterAssignments,
     getAssignedPrinterId,
     getConfiguredPrinters,
+    loadConfiguredPrinters,
+    getPrinterConfig,
+    createPrinterId,
     toPublicAssignments
 };

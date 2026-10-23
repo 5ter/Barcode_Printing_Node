@@ -5,12 +5,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawer = document.getElementById('printerEditDrawer');
     const form = document.getElementById('printerEditForm');
     const saveButton = document.getElementById('savePrinterAssignment');
+    const saveDetailsButton = document.getElementById('savePrinterDetails');
     const refreshButton = document.getElementById('refreshPrinters');
+    const addPrinterButton = document.getElementById('addPrinter');
+    const addPrinterShell = document.getElementById('addPrinterBackdrop');
+    const addPrinterDrawer = document.getElementById('addPrinterDrawer');
+    const addPrinterForm = document.getElementById('addPrinterForm');
+    const addPrinterSaveButton = document.getElementById('saveNewPrinter');
+    const addPrinterError = document.getElementById('addPrinterError');
     const searchInput = document.getElementById('printerSearchInput');
     const filterButtons = Array.from(document.querySelectorAll('[data-filter]'));
     const workflowRadios = Array.from(document.querySelectorAll('input[name="workflowAssignment"]'));
     const drawerError = document.getElementById('drawerError');
     const editImpact = document.getElementById('editImpact');
+    const restoreDefaultsButton = document.getElementById('restorePrinterDefaults');
 
     let printers = [];
     let assignments = { STANDARD: null, ARN: null };
@@ -18,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeFilter = 'all';
     let loading = false;
     let saving = false;
+    let adding = false;
     let lastEditButton = null;
 
     function showMessage(text, kind = 'info') {
@@ -30,12 +39,27 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerError.hidden = !text;
     }
 
+    function setAddPrinterError(text) {
+        addPrinterError.textContent = text;
+        addPrinterError.hidden = !text;
+    }
+
     function workflowForPrinter(printerId, source = assignments) {
         return Object.keys(source).find(key => source[key] === printerId) || null;
     }
 
     function assignedPrinterIds(source = assignments) {
         return new Set(Object.values(source).filter(Boolean));
+    }
+
+    function hasUnsavedPrinterDetails() {
+        if (!selectedPrinter) return false;
+        return form.elements.namedItem('name').value.trim() !== (selectedPrinter.name || '') ||
+            form.elements.namedItem('model').value.trim() !== (selectedPrinter.model || '') ||
+            form.elements.namedItem('location').value.trim() !== (selectedPrinter.location || '') ||
+            form.elements.namedItem('ipAddress').value.trim() !== (selectedPrinter.ipAddress || '') ||
+            form.elements.namedItem('macAddress').value.trim() !== (selectedPrinter.macAddress || '') ||
+            Number(form.elements.namedItem('port').value) !== Number(selectedPrinter.port);
     }
 
     function makeDetail(label, value, accent = false) {
@@ -75,7 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
         titleLine.append(title, configured);
         const subtitle = document.createElement('p');
         subtitle.className = 'printer-subtitle';
-        subtitle.textContent = 'Printer entry defined in the application server configuration.';
+        subtitle.textContent = printer.model || (printer.source === 'database'
+            ? 'Registered in the application printer inventory.'
+            : 'Printer entry defined in the application server configuration.');
         titleWrap.append(titleLine, subtitle);
 
         const mapping = document.createElement('div');
@@ -94,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         details.className = 'printer-details';
         details.append(
             makeDetail('Printer ID', printer.id),
+            makeDetail('Location', printer.location || 'Not specified'),
+            makeDetail('IPv4 address', printer.ipAddress || 'Not available'),
+            makeDetail('MAC address', printer.macAddress || 'Not specified'),
             makeDetail('Assigned workflow', workflowKey || 'UNASSIGNED', Boolean(workflowKey)),
             makeDetail('TCP port', String(printer.port || 9100))
         );
@@ -105,12 +134,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const noteIcon = document.createElement('span');
         noteIcon.setAttribute('aria-hidden', 'true');
         noteIcon.textContent = '✓';
-        note.append(noteIcon, document.createTextNode('Network settings remain server-managed'));
+        note.append(noteIcon, document.createTextNode('Edit printer details or workflow'));
         const editButton = document.createElement('button');
         editButton.className = 'edit-button';
         editButton.type = 'button';
-        editButton.textContent = 'Edit assignment  →';
-        editButton.setAttribute('aria-label', 'Edit workflow assignment for ' + (printer.name || printer.id));
+        editButton.textContent = 'Edit printer  →';
+        editButton.setAttribute('aria-label', 'Edit printer details and workflow for ' + (printer.name || printer.id));
         editButton.addEventListener('click', () => openEditor(printer, editButton));
         footer.append(note, editButton);
 
@@ -126,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const filterMatches = activeFilter === 'all' ||
                 (activeFilter === 'assigned' && isAssigned) ||
                 (activeFilter === 'unassigned' && !isAssigned);
-            const searchMatches = !query || [printer.name, printer.id].some(value =>
+            const searchMatches = !query || [printer.name, printer.id, printer.location, printer.ipAddress, printer.macAddress].some(value =>
                 String(value || '').toLocaleLowerCase().includes(query)
             );
             return filterMatches && searchMatches;
@@ -188,6 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
         editImpact.textContent = pieces.join(' ');
         editImpact.className = 'edit-impact' + (desiredWorkflow !== currentWorkflow && currentWorkflow === 'ARN' ? ' warning' : '');
         saveButton.disabled = saving || loading || desiredWorkflow === currentWorkflow;
+        saveDetailsButton.disabled = saving || loading;
+        restoreDefaultsButton.disabled = saving || loading;
     }
 
     function openEditor(printer, trigger) {
@@ -196,6 +227,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('editPrinterName').textContent = printer.name || printer.id;
         document.getElementById('editPrinterId').textContent = printer.id;
         document.getElementById('editPrinterPort').textContent = 'TCP port ' + (printer.port || 9100);
+        form.elements.namedItem('name').value = printer.name || '';
+        form.elements.namedItem('model').value = printer.model || '';
+        form.elements.namedItem('location').value = printer.location || '';
+        form.elements.namedItem('ipAddress').value = printer.ipAddress || '';
+        form.elements.namedItem('macAddress').value = printer.macAddress || '';
+        form.elements.namedItem('port').value = String(printer.port || 9100);
+        restoreDefaultsButton.hidden = !(printer.isApplicationPrinter && printer.source === 'database');
         const assignedWorkflow = workflowForPrinter(printer.id) || 'UNASSIGNED';
         workflowRadios.forEach(radio => { radio.checked = radio.value === assignedWorkflow; });
         setDrawerError('');
@@ -215,10 +253,26 @@ document.addEventListener('DOMContentLoaded', () => {
         lastEditButton = null;
     }
 
+    function openAddPrinterDrawer() {
+        addPrinterForm.reset();
+        setAddPrinterError('');
+        addPrinterShell.hidden = false;
+        document.body.classList.add('drawer-open');
+        document.getElementById('newPrinterName').focus();
+    }
+
+    function closeAddPrinterDrawer() {
+        if (adding) return;
+        addPrinterShell.hidden = true;
+        document.body.classList.remove('drawer-open');
+        addPrinterButton.focus();
+    }
+
     async function loadAssignments() {
         if (loading) return;
         loading = true;
         refreshButton.disabled = true;
+        let loaded = false;
         try {
             const response = await fetch('/api/printer-setup/assignments', { cache: 'no-store' });
             const result = await response.json().catch(() => ({}));
@@ -233,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSummary();
             renderInventory();
             showMessage('Printer inventory and workflow assignments loaded from the application database.', 'success');
+            loaded = true;
             if (selectedPrinter) {
                 selectedPrinter = printers.find(printer => printer.id === selectedPrinter.id) || null;
                 if (selectedPrinter) assignmentPreview();
@@ -250,7 +305,63 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshButton.disabled = false;
             if (selectedPrinter) assignmentPreview();
         }
+        return loaded;
     }
+
+    addPrinterButton.addEventListener('click', openAddPrinterDrawer);
+    document.getElementById('closeAddPrinter').addEventListener('click', closeAddPrinterDrawer);
+    document.getElementById('cancelAddPrinter').addEventListener('click', closeAddPrinterDrawer);
+    document.getElementById('addPrinterBackdropButton').addEventListener('click', closeAddPrinterDrawer);
+    addPrinterForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (adding || !addPrinterForm.reportValidity()) return;
+
+        const payload = {
+            name: addPrinterForm.elements.namedItem('name').value.trim(),
+            model: addPrinterForm.elements.namedItem('model').value.trim(),
+            location: addPrinterForm.elements.namedItem('location').value.trim(),
+            ipAddress: addPrinterForm.elements.namedItem('ipAddress').value.trim(),
+            macAddress: addPrinterForm.elements.namedItem('macAddress').value.trim(),
+            port: Number(addPrinterForm.elements.namedItem('port').value)
+        };
+        adding = true;
+        setAddPrinterError('');
+        addPrinterSaveButton.disabled = true;
+        addPrinterSaveButton.textContent = 'Adding printer…';
+        try {
+            const response = await fetch('/api/printer-setup/printers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || result.status !== 'success') {
+                throw new Error(result.message || 'Could not add this printer.');
+            }
+
+            addPrinterShell.hidden = true;
+            document.body.classList.remove('drawer-open');
+            activeFilter = 'all';
+            searchInput.value = '';
+            filterButtons.forEach(button => {
+                const selected = button.dataset.filter === 'all';
+                button.classList.toggle('selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+            });
+            const refreshed = await loadAssignments();
+            addPrinterButton.focus();
+            showMessage(refreshed
+                ? result.message
+                : 'Printer was saved, but the inventory did not refresh. Use Refresh Printer List to reload it.',
+            refreshed ? 'success' : 'error');
+        } catch (error) {
+            setAddPrinterError(error.message);
+        } finally {
+            adding = false;
+            addPrinterSaveButton.disabled = false;
+            addPrinterSaveButton.textContent = 'Add Printer';
+        }
+    });
 
     workflowRadios.forEach(radio => radio.addEventListener('change', assignmentPreview));
     searchInput.addEventListener('input', renderInventory);
@@ -267,10 +378,48 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('closeDrawer').addEventListener('click', closeEditor);
     document.getElementById('cancelEdit').addEventListener('click', closeEditor);
     document.getElementById('drawerBackdrop').addEventListener('click', closeEditor);
+    restoreDefaultsButton.addEventListener('click', async () => {
+        if (!selectedPrinter || saving || !selectedPrinter.isApplicationPrinter) return;
+        const printerId = selectedPrinter.id;
+        const workflowKey = workflowForPrinter(printerId);
+        const warning = workflowKey
+            ? ' If the current address differs from its server defaults, future ' + workflowKey + ' jobs will use the restored endpoint.'
+            : '';
+        if (!window.confirm('Remove the saved database override and restore this printer to its application server settings?' + warning)) return;
+
+        saving = true;
+        restoreDefaultsButton.disabled = true;
+        setDrawerError('');
+        try {
+            const response = await fetch('/api/printer-setup/printers/' + encodeURIComponent(printerId), {
+                method: 'DELETE'
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || result.status !== 'success') {
+                throw new Error(result.message || 'Could not restore this printer.');
+            }
+            const refreshed = await loadAssignments();
+            saving = false;
+            closeEditor();
+            showMessage(refreshed
+                ? result.message
+                : 'Defaults were restored, but the printer list could not refresh. Click Refresh Printer List.',
+            refreshed ? 'success' : 'error');
+        } catch (error) {
+            setDrawerError(error.message);
+        } finally {
+            saving = false;
+            if (selectedPrinter) assignmentPreview();
+        }
+    });
+
     document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !addPrinterShell.hidden) closeAddPrinterDrawer();
         if (event.key === 'Escape' && !drawerShell.hidden) closeEditor();
-        if (event.key === 'Tab' && !drawerShell.hidden) {
-            const focusable = Array.from(drawer.querySelectorAll('button:not(:disabled), input:not(:disabled)'));
+        if (event.key === 'Tab') {
+            const activeDrawer = !addPrinterShell.hidden ? addPrinterDrawer : !drawerShell.hidden ? drawer : null;
+            if (!activeDrawer) return;
+            const focusable = Array.from(activeDrawer.querySelectorAll('button:not(:disabled):not([hidden]), input:not(:disabled):not([hidden])'));
             const first = focusable[0];
             const last = focusable[focusable.length - 1];
             if (event.shiftKey && document.activeElement === first) {
@@ -284,8 +433,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     refreshButton.addEventListener('click', loadAssignments);
 
+    async function savePrinterDetails() {
+        if (saving || !selectedPrinter) return;
+        const printerId = selectedPrinter.id;
+        const currentWorkflow = workflowForPrinter(printerId);
+        const payload = {
+            name: form.elements.namedItem('name').value.trim(),
+            model: form.elements.namedItem('model').value.trim(),
+            location: form.elements.namedItem('location').value.trim(),
+            ipAddress: form.elements.namedItem('ipAddress').value.trim(),
+            macAddress: form.elements.namedItem('macAddress').value.trim(),
+            port: Number(form.elements.namedItem('port').value)
+        };
+        const connectionChanged = payload.ipAddress !== selectedPrinter.ipAddress ||
+            payload.port !== Number(selectedPrinter.port);
+        if (currentWorkflow && connectionChanged && !window.confirm(
+            'This printer is assigned to ' + currentWorkflow + '. Saving the new IP address or TCP port will redirect future jobs for that workflow. Continue?'
+        )) return;
+
+        saving = true;
+        saveDetailsButton.textContent = 'Saving printer details';
+        setDrawerError('');
+        assignmentPreview();
+        try {
+            const response = await fetch('/api/printer-setup/printers/' + encodeURIComponent(printerId), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || result.status !== 'success') {
+                throw new Error(result.message || 'Could not save printer details.');
+            }
+            selectedPrinter = { ...selectedPrinter, ...result.printer, source: 'database' };
+            printers = printers.map(printer => printer.id === printerId ? selectedPrinter : printer);
+            restoreDefaultsButton.hidden = !selectedPrinter.isApplicationPrinter;
+            document.getElementById('editPrinterName').textContent = selectedPrinter.name || selectedPrinter.id;
+            document.getElementById('editPrinterPort').textContent = 'TCP port ' + selectedPrinter.port;
+            renderInventory();
+            showMessage(result.message, 'success');
+        } catch (error) {
+            setDrawerError(error.message);
+        } finally {
+            saving = false;
+            saveDetailsButton.textContent = 'Save Printer Details';
+            if (selectedPrinter) assignmentPreview();
+        }
+    }
+
     form.addEventListener('submit', async event => {
         event.preventDefault();
+        if (!event.submitter || event.submitter.value === 'details') {
+            await savePrinterDetails();
+            return;
+        }
+        if (hasUnsavedPrinterDetails()) {
+            setDrawerError('Save Printer Details before changing this workflow assignment; the two actions are saved separately.');
+            return;
+        }
         if (saving || !selectedPrinter) return;
         const workflowKey = selectedWorkflow();
         const currentWorkflow = workflowForPrinter(selectedPrinter.id);
@@ -295,6 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveButton.textContent = 'Saving assignment…';
         saveButton.disabled = true;
         setDrawerError('');
+        assignmentPreview();
         try {
             const response = await fetch('/api/printer-setup/assignments', {
                 method: 'POST',
