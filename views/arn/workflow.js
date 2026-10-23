@@ -110,6 +110,119 @@ document.addEventListener('DOMContentLoaded', () => {
             lockButton.disabled = true;
         }
 
+        const recentRows = document.getElementById('recentCartonRows');
+        const recentCount = document.getElementById('recentCartonCount');
+
+        function appendCell(row, value, className) {
+            const cell = document.createElement('td');
+            if (className) cell.className = className;
+            if (value instanceof Node) cell.appendChild(value);
+            else cell.textContent = value;
+            row.appendChild(cell);
+            return cell;
+        }
+
+        function statusClass(status) {
+            const suffix = String(status || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            return suffix ? 'arn-status-' + suffix : 'arn-status-unknown';
+        }
+
+        function renderRecentCartons(cartons) {
+            recentRows.replaceChildren();
+            recentCount.textContent = cartons.length + ' recent carton' + (cartons.length === 1 ? '' : 's');
+            if (!cartons.length) {
+                const emptyRow = document.createElement('tr');
+                appendCell(emptyRow, 'No cartons have been created at this ARN station yet.', 'arn-table-empty').colSpan = 5;
+                recentRows.appendChild(emptyRow);
+                return;
+            }
+
+            for (const carton of cartons) {
+                const row = document.createElement('tr');
+                const labelCell = document.createElement('td');
+                const cartonCode = document.createElement('span');
+                cartonCode.className = 'arn-table-code';
+                cartonCode.textContent = 'Carton #' + carton.id;
+                const reference = document.createElement('span');
+                reference.className = 'arn-table-subtext';
+                reference.textContent = carton.labelReference || 'Label not printed yet';
+                labelCell.append(cartonCode, reference);
+                row.appendChild(labelCell);
+
+                const partCell = document.createElement('td');
+                const mo = document.createElement('strong');
+                mo.textContent = carton.mo || '—';
+                const part = document.createElement('span');
+                part.className = 'arn-table-subtext';
+                part.textContent = carton.arnPartNo || carton.manufacturerPartNo || '—';
+                partCell.append(mo, part);
+                row.appendChild(partCell);
+
+                const units = document.createElement('span');
+                units.className = 'arn-table-units';
+                units.textContent = String(carton.printedQuantity == null ? carton.scannedCount : carton.printedQuantity);
+                const capacity = document.createElement('span');
+                capacity.className = 'arn-table-capacity';
+                capacity.textContent = ' / ' + String(carton.boxCapacity);
+                const unitsCell = document.createElement('td');
+                unitsCell.append(units, capacity);
+                row.appendChild(unitsCell);
+
+                const status = document.createElement('span');
+                status.className = 'arn-status ' + statusClass(carton.status);
+                status.textContent = String(carton.status || 'Unknown').replace(/_/g, ' ');
+                appendCell(row, status);
+
+                const actionCell = document.createElement('td');
+                if (carton.canReprint) {
+                    const reprint = document.createElement('button');
+                    reprint.type = 'button';
+                    reprint.className = 'arn-button arn-button-secondary arn-table-button';
+                    reprint.textContent = 'Reprint';
+                    reprint.title = 'Send the original saved label again';
+                    reprint.addEventListener('click', async () => {
+                        const referenceText = carton.labelReference || ('for Carton #' + carton.id);
+                        if (!window.confirm('Reprint ARN label ' + referenceText + ' to Printer ' + printer + '? This sends one additional copy with the same saved reference.')) return;
+                        reprint.disabled = true;
+                        try {
+                            const result = await api('/arn/api/cartons/' + encodeURIComponent(carton.id) + '/reprint', 'POST', {});
+                            displayAlert(alert, 'Reprinted the same ARN reference: ' + result.labelReference, 'success');
+                            await loadRecentCartons();
+                        } catch (error) {
+                            displayAlert(alert, error.message, 'error');
+                            reprint.disabled = false;
+                        }
+                    });
+                    actionCell.appendChild(reprint);
+                } else if (stationState && stationState.carton && String(stationState.carton.id) === String(carton.id) && carton.status !== 'SEALED') {
+                    const resume = document.createElement('a');
+                    resume.className = 'arn-button arn-button-primary arn-table-button';
+                    resume.href = '/arn/scan';
+                    resume.textContent = 'Resume';
+                    actionCell.appendChild(resume);
+                } else {
+                    actionCell.textContent = carton.status === 'SEALED' ? 'No saved payload' : '—';
+                }
+                row.appendChild(actionCell);
+                recentRows.appendChild(row);
+            }
+        }
+
+        async function loadRecentCartons() {
+            try {
+                const result = await api('/arn/api/recent-cartons');
+                renderRecentCartons(result.cartons || []);
+            } catch (error) {
+                recentRows.replaceChildren();
+                const errorRow = document.createElement('tr');
+                appendCell(errorRow, error.message, 'arn-table-empty').colSpan = 5;
+                recentRows.appendChild(errorRow);
+                recentCount.textContent = 'History unavailable';
+            }
+        }
+
+        await loadRecentCartons();
+
         let lookupTimer;
         mpnInput.addEventListener('input', () => {
             clearTimeout(lookupTimer);

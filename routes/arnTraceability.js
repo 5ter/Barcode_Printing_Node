@@ -244,6 +244,55 @@ router.get('/api/state', async (req, res) => {
     }
 });
 
+// The Step 1 history panel is deliberately limited to the current ARN
+// station. This keeps its Reprint actions tied to the printer that created
+// the carton and prevents an old line's labels appearing at a new station.
+router.get('/api/recent-cartons', async (req, res) => {
+    const printerId = await getArnWorkflowPrinter(res);
+    if (!printerId) return;
+    let connection;
+    try {
+        connection = await db.getConnection();
+        const [rows] = await connection.execute(
+            'SELECT c.id, c.mo, c.manufacturer_part_no, c.arn_part_no, c.box_capacity, c.scanned_count, c.status, ' +
+            'c.created_at, c.sealed_at, c.label_history_id, ' +
+            'h.id AS print_history_id, h.label_content AS label_reference, h.quantity AS printed_quantity, ' +
+            'h.print_status, h.retry_count, h.last_retry_at, h.last_error, ' +
+            'CASE WHEN h.label_payload IS NULL OR h.label_payload = \'\' THEN 0 ELSE 1 END AS has_saved_payload ' +
+            'FROM arn_cartons c ' +
+            'LEFT JOIN arn_label_print_history h ON h.id = c.label_history_id ' +
+            'WHERE c.printer_id = ? ' +
+            'ORDER BY c.id DESC LIMIT 10',
+            [printerId]
+        );
+        const cartons = rows.map(row => ({
+            id: String(row.id),
+            mo: row.mo,
+            manufacturerPartNo: row.manufacturer_part_no,
+            arnPartNo: row.arn_part_no,
+            boxCapacity: safeCount(row.box_capacity),
+            scannedCount: safeCount(row.scanned_count),
+            status: row.status,
+            createdAt: row.created_at,
+            sealedAt: row.sealed_at,
+            printHistoryId: row.print_history_id ? String(row.print_history_id) : null,
+            labelReference: row.label_reference || null,
+            printedQuantity: row.printed_quantity == null ? null : safeCount(row.printed_quantity),
+            printStatus: row.print_status || null,
+            retryCount: safeCount(row.retry_count),
+            lastRetryAt: row.last_retry_at || null,
+            lastError: row.last_error || null,
+            canReprint: row.status === 'SEALED' && Boolean(row.print_history_id) && Number(row.has_saved_payload) === 1
+        }));
+        return res.json({ status: 'success', cartons });
+    } catch (error) {
+        logger.error('Could not load recent ARN cartons:', error);
+        return res.status(500).json({ status: 'error', message: 'Could not load recent cartons for this ARN station.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
 router.get('/api/lookup', async (req, res) => {
     const printerId = await getArnWorkflowPrinter(res);
     if (!printerId) return;
@@ -746,6 +795,99 @@ router.post('/api/retry-label', async (req, res) => {
         return res.status(502).json({ status: 'error', message: 'Retry failed. The saved ARN reference remains available to retry.', labelReference: job.labelReference, state });
     }
     return res.json({ status: 'success', message: job.labelReference, state });
+});
+
+// Reprint a previously sealed carton from Step 1. The exact saved SBPL
+// payload and label reference are reused, so this never allocates a new ARN
+// sequence number or changes the carton contents.
+router.post('/api/cartons/:cartonId/reprint', async (req, res) => {
+    const printerId = await getArnWorkflowPrinter(res);
+    if (!printerId) return;
+    const cartonId = String(req.params.cartonId || '').trim();
+    if (!/^[1-9][0-9]*$/.test(cartonId)) {
+        return res.status(400).json({ status: 'error', message: 'Choose a valid saved carton to reprint.' });
+    }
+
+    let connection;
+    let transactionOpen = false;
+    let labelReference = '';
+    try {
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+        transactionOpen = true;
+        const [rows] = await connection.execute(
+            'SELECT c.id, c.printer_id, c.status, h.id AS print_history_id, h.label_content, h.label_payload, h.print_status ' +
+            'FROM arn_cartons c ' +
+            'LEFT JOIN arn_label_print_history h ON h.id = c.label_history_id ' +
+            'WHERE c.id = ? FOR UPDATE',
+            [cartonId]
+        );
+        if (!rows.length || rows[0].printer_id !== printerId) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(404).json({ status: 'error', message: 'That carton is not in this ARN station’s recent history.' });
+        }
+
+        const carton = rows[0];
+        if (carton.status !== 'SEALED') {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'Only sealed cartons can be reprinted from the recent-carton list.' });
+        }
+        if (!carton.print_history_id || !carton.label_payload) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'This carton has no saved label payload, so it cannot be reprinted exactly.' });
+        }
+        if (carton.print_status === 'PENDING') {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'A reprint is already being prepared for this carton. Check the printer before trying again.' });
+        }
+
+        const printerConfig = await getPrinterConfig(connection, printerId);
+        if (!printerConfig) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(500).json({ status: 'error', message: 'The assigned ARN printer configuration is missing.' });
+        }
+
+        labelReference = String(carton.label_content || '');
+        await connection.execute(
+            'UPDATE arn_label_print_history SET retry_count = retry_count + 1, last_retry_at = CURRENT_TIMESTAMP, print_status = ?, last_error = NULL WHERE id = ?',
+            ['PENDING', carton.print_history_id]
+        );
+        await connection.commit();
+        transactionOpen = false;
+
+        try {
+            await printLabel_arn(carton.label_payload, printerConfig.IP, printerConfig.PORT);
+            await connection.execute(
+                'UPDATE arn_label_print_history SET print_status = ?, last_error = NULL WHERE id = ?',
+                ['SENT', carton.print_history_id]
+            );
+            logger.log('Reprinted ARN carton ' + cartonId + ' label ' + labelReference + ' to ' + printerId + '.');
+            return res.json({ status: 'success', labelReference, cartonId });
+        } catch (printError) {
+            await connection.execute(
+                'UPDATE arn_label_print_history SET print_status = ?, last_error = ? WHERE id = ?',
+                ['FAILED', String(printError.message || printError).slice(0, 4000), carton.print_history_id]
+            );
+            logger.error('Could not reprint ARN carton ' + cartonId + ' label ' + labelReference + ': ' + printError.message);
+            return res.status(502).json({
+                status: 'error',
+                message: 'The saved label could not be sent. The carton remains sealed and the same label can be reprinted again.',
+                labelReference,
+                cartonId
+            });
+        }
+    } catch (error) {
+        if (connection && transactionOpen) await connection.rollback();
+        logger.error('Could not reprint saved ARN carton:', error);
+        return res.status(500).json({ status: 'error', message: 'Could not reprint the saved carton label.' });
+    } finally {
+        if (connection) connection.release();
+    }
 });
 
 module.exports = router;
