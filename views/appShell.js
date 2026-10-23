@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         hub: makeLink('Workstation Hub', serviceUrl(mainPort, '/'), 'hub'),
         standard: makeLink('Standard Label', serviceUrl(mainPort, '/standard'), 'standard'),
         arn: makeLink('ARN Workflow', serviceUrl(mainPort, '/arn/setup'), 'arn'),
-        excel: makeLink('Excel Upload', serviceUrl(excelPort, '/', { MainPort: mainPort }), 'excel'),
+        excel: makeLink('Excel Upload', serviceUrl(excelPort, '/'), 'excel'),
         printer: makeLink('Printer Setup', serviceUrl(mainPort, '/printer-setup'), 'printer'),
         dashboard: makeLink('Dashboard', serviceUrl(mainPort, '/dashboard'), 'dashboard')
     };

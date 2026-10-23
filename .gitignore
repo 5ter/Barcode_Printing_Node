@@ -26,6 +26,9 @@ npm-debug.log*
 step 1 page/
 step 2 page/
 excel uploader page/
+!excel uploader page/
+excel uploader page/*
+!excel uploader page/code.html
 dashboard sample/
 printer setup page/
 ecosystem.config.js

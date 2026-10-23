@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadUrl.pathname = '/';
         uploadUrl.search = '';
         uploadUrl.hash = '';
-        uploadUrl.searchParams.set('MainPort', window.location.port || '3003');
         excelUploadLink.href = uploadUrl.toString();
     }
 

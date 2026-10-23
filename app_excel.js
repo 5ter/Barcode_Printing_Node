@@ -111,9 +111,14 @@ const uploaderAccess = requireRoles(['SUPERVISOR', 'ADMIN'], {
     homeUrl: req => mainHubUrl(req).toString()
 });
 
-app.get('/', uploaderAccess, (req, res, next) => {
+app.get('/', uploaderAccess, (req, res) => {
     fs.readFile(uploaderPagePath, 'utf8', (error, sourceHtml) => {
-        if (error) return next(error);
+        if (error) {
+            logger.error('Unable to load Excel uploader page:', error);
+            return res.status(500).type('text').send(
+                'The Excel uploader page is unavailable. Ensure "excel uploader page/code.html" is included in the deployment.'
+            );
+        }
 
         const pageMainPort = mainAppPort;
         const html = sourceHtml
