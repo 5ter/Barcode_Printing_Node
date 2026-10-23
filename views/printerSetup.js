@@ -153,8 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('assignedPrinterCount').textContent = String(assigned.size);
         document.getElementById('unassignedPrinterCount').textContent = String(Math.max(0, printers.length - assigned.size));
 
-        const summary = document.getElementById('headerConfigCount');
-        summary.textContent = printers.length + ' CONFIGURED PRINTER' + (printers.length === 1 ? '' : 'S');
     }
 
     function selectedWorkflow() {
@@ -221,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (loading) return;
         loading = true;
         refreshButton.disabled = true;
-        document.getElementById('headerConfigCount').textContent = 'LOADING PRINTERS';
         try {
             const response = await fetch('/api/printer-setup/assignments', { cache: 'no-store' });
             const result = await response.json().catch(() => ({}));
