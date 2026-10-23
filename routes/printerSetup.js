@@ -40,36 +40,12 @@ router.get('/api/printer-setup/assignments', async (req, res) => {
 
 router.post('/api/printer-setup/assignments', async (req, res) => {
     const body = req.body || {};
-    if (!Object.prototype.hasOwnProperty.call(body, 'standardPrinterId') ||
-        !Object.prototype.hasOwnProperty.call(body, 'arnPrinterId')) {
+    const printerId = normalizePrinterId(body.printerId);
+    const workflowKey = String(body.workflowKey || '').trim().toUpperCase();
+    if (!printerId || ![WORKFLOWS.STANDARD.key, WORKFLOWS.ARN.key, 'UNASSIGNED'].includes(workflowKey)) {
         return res.status(400).json({
             status: 'error',
-            message: 'Send both workflow assignments. Use null or an empty value for an unassigned workflow.'
-        });
-    }
-
-    const parseAssignment = value => {
-        if (value === null || value === undefined || String(value).trim() === '') {
-            return { valid: true, printerId: null };
-        }
-        const printerId = normalizePrinterId(value);
-        return { valid: Boolean(printerId), printerId };
-    };
-    const standardAssignment = parseAssignment(body.standardPrinterId);
-    const arnAssignment = parseAssignment(body.arnPrinterId);
-    if (!standardAssignment.valid || !arnAssignment.valid) {
-        return res.status(400).json({
-            status: 'error',
-            message: 'Choose a configured printer or leave the workflow unassigned.'
-        });
-    }
-
-    const standardPrinterId = standardAssignment.printerId;
-    const arnPrinterId = arnAssignment.printerId;
-    if (standardPrinterId && standardPrinterId === arnPrinterId) {
-        return res.status(400).json({
-            status: 'error',
-            message: 'Assign different printers to Standard and ARN workflows.'
+            message: 'Choose a configured printer and assign it to Standard, ARN, or Unassigned.'
         });
     }
 
@@ -88,7 +64,17 @@ router.post('/api/printer-setup/assignments', async (req, res) => {
             currentAssignments[String(row.workflow_key).toUpperCase()] = normalizePrinterId(row.printer_id);
         }
 
-        if (currentAssignments[WORKFLOWS.ARN.key] !== arnPrinterId) {
+        const nextAssignments = { ...currentAssignments };
+        for (const workflow of Object.values(WORKFLOWS)) {
+            if (nextAssignments[workflow.key] === printerId) {
+                nextAssignments[workflow.key] = null;
+            }
+        }
+        if (workflowKey !== 'UNASSIGNED') {
+            nextAssignments[workflowKey] = printerId;
+        }
+
+        if (currentAssignments[WORKFLOWS.ARN.key] !== nextAssignments[WORKFLOWS.ARN.key]) {
             const [activeRows] = await connection.execute(
                 'SELECT ' +
                     '(SELECT COUNT(*) FROM arn_station_lock WHERE mo IS NOT NULL) + ' +
@@ -108,22 +94,19 @@ router.post('/api/printer-setup/assignments', async (req, res) => {
         await connection.execute('DELETE FROM workflow_printer_assignments');
         await connection.execute(
             'INSERT INTO workflow_printer_assignments (workflow_key, printer_id) VALUES (?, ?)',
-            [WORKFLOWS.STANDARD.key, standardPrinterId]
+            [WORKFLOWS.STANDARD.key, nextAssignments[WORKFLOWS.STANDARD.key] || null]
         );
         await connection.execute(
             'INSERT INTO workflow_printer_assignments (workflow_key, printer_id) VALUES (?, ?)',
-            [WORKFLOWS.ARN.key, arnPrinterId]
+            [WORKFLOWS.ARN.key, nextAssignments[WORKFLOWS.ARN.key] || null]
         );
         await connection.commit();
         transactionOpen = false;
 
         return res.json({
             status: 'success',
-            message: 'Workflow printer assignments saved.',
-            assignments: toPublicAssignments({
-                [WORKFLOWS.STANDARD.key]: standardPrinterId,
-                [WORKFLOWS.ARN.key]: arnPrinterId
-            })
+            message: 'Printer workflow assignment saved.',
+            assignments: toPublicAssignments(nextAssignments)
         });
     } catch (error) {
         if (connection && transactionOpen) await connection.rollback();

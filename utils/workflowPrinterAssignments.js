@@ -58,7 +58,8 @@ function getConfiguredPrinters() {
     return Object.entries(printerSettings.PRINTERS).map(([id, config]) => ({
         id,
         letter: id.replace(/^PRINTER_/, ''),
-        name: config.NAME
+        name: config.NAME,
+        port: Number(config.PORT) || 9100
     }));
 }
 

@@ -4,96 +4,141 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-store">
-    <meta name="theme-color" content="#0f172a">
-    <title>Printer Setup | ACTMAX Traceability</title>
+    <meta name="theme-color" content="#f8f9ff">
+    <title>Printer Setup &amp; Device Management | ACTMAX</title>
     <link rel="stylesheet" href="/css/printer-setup.css">
     <script src="/printer-setup.js" defer></script>
 </head>
 <body>
     <header class="topbar">
         <a class="brand" href="/" aria-label="ACTMAX Traceability System home">
-            <span class="brand-title">ACTMAX <span aria-hidden="true">&gt;&gt;</span></span>
-            <span class="brand-caption">TRACEABILITY SYSTEM</span>
+            <span class="brand-mark" aria-hidden="true">▦</span>
+            <span class="brand-name">ACTMAX</span>
+            <span class="brand-tag">TRACE</span>
         </a>
-        <nav aria-label="Main navigation">
+        <nav class="main-nav" aria-label="Main navigation">
             <a href="/">Workstation Hub</a>
+            <a href="/arn/setup">Packaging Workflow</a>
             <a class="current" href="/printer-setup" aria-current="page">Printers &amp; Devices</a>
             <a href="/dashboard">Records / Database</a>
         </nav>
-        <span class="config-badge">SERVER CONFIGURATION</span>
+        <span id="headerConfigCount" class="header-status">LOADING PRINTERS</span>
+        <a class="user-placeholder" href="/" aria-label="Return to workstation hub">›</a>
     </header>
 
     <main class="page-content">
-        <div class="eyebrow">WORKFLOW ROUTING / DEVICE ASSIGNMENT</div>
-        <div class="heading-row">
-            <div>
-                <h1>Printer Setup &amp; Workflow Assignment</h1>
-                <p class="lede">Assign configured printers to workflows. A printer can serve only one workflow; an unassigned workflow cannot print until a printer is assigned.</p>
+        <section class="page-intro">
+            <div class="intro-copy">
+                <div class="eyebrow">WORKFLOW ROUTING <span>•</span> HARDWARE LAYER</div>
+                <h1>Printer Setup &amp; Device Management</h1>
+                <p>Review the configured printer fleet and assign a workflow from that printer’s edit panel. Printer network settings remain managed on the server.</p>
             </div>
-            <a class="back-link" href="/">Back to Workstation Hub</a>
-        </div>
-
-        <div id="setupMessage" class="message" role="status" aria-live="polite">Loading current printer assignments…</div>
-
-        <section class="summary-grid" aria-label="Printer assignment summary">
-            <article class="summary-card"><span>CONFIGURED PRINTERS</span><strong id="printerCount">—</strong></article>
-            <article class="summary-card"><span>WORKFLOWS ROUTED</span><strong id="workflowCount">—</strong></article>
-            <article class="summary-card"><span>AVAILABLE PRINTERS</span><strong id="availableCount">—</strong></article>
+            <button id="refreshPrinters" class="button button-secondary" type="button">
+                <span aria-hidden="true">↻</span> Refresh Printer List
+            </button>
         </section>
 
-        <section class="assignment-panel" aria-labelledby="assignment-title">
-            <div class="section-heading">
-                <div>
-                    <div class="section-kicker">PIPELINE MAPPING</div>
-                    <h2 id="assignment-title">Assign printers to workflows</h2>
-                </div>
-                <span class="pill">Changes apply to new print activity</span>
-            </div>
-            <div class="assignment-grid">
-                <label class="assignment-card standard-card" for="standardPrinter">
-                    <span class="workflow-mark">STANDARD</span>
-                    <strong>Standard Product Label</strong>
-                    <span class="description">MO and Actmax Part No. product-label printing.</span>
-                    <span class="field-label">Assigned printer</span>
-                    <select id="standardPrinter" disabled aria-label="Printer assigned to Standard workflow">
-                        <option value="">Loading printers…</option>
-                    </select>
-                </label>
-                <label class="assignment-card arn-card" for="arnPrinter">
-                    <span class="workflow-mark">ARN CUSTOMER</span>
-                    <strong>ARN Carton Workflow</strong>
-                    <span class="description">Carton setup, unit scans, and ARN carton-label printing.</span>
-                    <span class="field-label">Assigned printer</span>
-                    <select id="arnPrinter" disabled aria-label="Printer assigned to ARN workflow">
-                        <option value="">Loading printers…</option>
-                    </select>
-                </label>
-            </div>
-            <div id="assignmentError" class="inline-error" role="alert" hidden></div>
-            <div class="form-actions">
-                <p>Each printer can be assigned to only one workflow. Choosing a printer already in use moves the previous workflow to Unassigned.</p>
-                <button id="saveAssignments" type="button" disabled>Save Workflow Assignments</button>
-            </div>
+        <div id="setupMessage" class="message" role="status" aria-live="polite"></div>
+
+        <section class="summary-grid" aria-label="Printer fleet summary">
+            <article class="summary-card">
+                <div><span class="summary-label">CONFIGURED HARDWARE</span><strong id="printerCount">—</strong><span class="summary-unit">Printers</span></div>
+                <span class="summary-icon blue" aria-hidden="true">▣</span>
+            </article>
+            <article class="summary-card">
+                <div><span class="summary-label">WORKFLOWS ASSIGNED</span><strong id="assignedWorkflowCount">—</strong><span class="summary-unit">of 2 workflows</span></div>
+                <span class="summary-icon green" aria-hidden="true">↗</span>
+            </article>
+            <article class="summary-card">
+                <div><span class="summary-label">UNASSIGNED / STANDBY</span><strong id="standbyPrinterCount">—</strong><span class="summary-unit">Printers available</span></div>
+                <span class="summary-icon slate" aria-hidden="true">Ⅱ</span>
+            </article>
+            <article class="summary-card">
+                <div><span class="summary-label">WORKFLOWS NOT ROUTED</span><strong id="unassignedWorkflowCount">—</strong><span class="summary-unit">Cannot print yet</span></div>
+                <span class="summary-icon amber" aria-hidden="true">!</span>
+            </article>
         </section>
 
-        <section class="device-panel" aria-labelledby="device-title">
-            <div class="section-heading">
-                <div>
-                    <div class="section-kicker">CONFIGURED HARDWARE</div>
-                    <h2 id="device-title">Available printers</h2>
+        <section class="inventory-section" aria-label="Printer inventory">
+            <div class="inventory-toolbar">
+                <label class="search-box" for="printerSearchInput">
+                    <span aria-hidden="true">⌕</span>
+                    <input id="printerSearchInput" type="search" autocomplete="off" placeholder="Filter by printer name or ID…">
+                </label>
+                <div class="filter-pills" role="group" aria-label="Filter printers by workflow assignment">
+                    <button class="filter-button selected" type="button" data-filter="all">All printers <span id="allPrinterCount">—</span></button>
+                    <button class="filter-button" type="button" data-filter="assigned">Assigned <span id="assignedPrinterCount">—</span></button>
+                    <button class="filter-button" type="button" data-filter="unassigned">Unassigned / standby <span id="unassignedPrinterCount">—</span></button>
                 </div>
-                <span class="subtle-note">Printer names and network endpoints are managed in server configuration.</span>
             </div>
-            <div id="printerList" class="printer-list" aria-live="polite"></div>
+
+            <div id="printerInventory" class="printer-inventory" aria-live="polite">
+                <div class="empty-state">Loading configured printers…</div>
+            </div>
         </section>
 
         <aside class="safety-note">
-            <strong>ARN carton safety</strong>
-            <span>The ARN assignment cannot be changed while an ARN MO/station lock or unfinished carton exists. Finish and unlock the MO first so its saved station state is not stranded.</span>
+            <strong>Assignment behavior</strong>
+            <span>A printer can serve only one workflow. Assigning it to a different workflow automatically leaves its former workflow or printer unassigned. An unassigned workflow cannot print. ARN routing cannot be changed while an MO/station lock or unfinished carton exists.</span>
         </aside>
         <p class="security-note">This setup page is not access-controlled yet. Until authentication is added, anyone who can reach the application can change workflow assignments.</p>
     </main>
 
-    <footer class="page-footer"><span>ACTMAX INDUSTRIAL TRACEABILITY SYSTEM</span><span>Printer IPs remain in config/printerSetting.js</span></footer>
+    <footer class="page-footer">
+        <span>ACTMAX INDUSTRIAL TRACEABILITY SYSTEM</span>
+        <span>Only server-configured printers are shown; health and diagnostic status are not reported by this application.</span>
+    </footer>
+
+    <div id="printerEditBackdrop" class="drawer-shell" hidden>
+        <button id="drawerBackdrop" class="drawer-backdrop" type="button" aria-label="Close printer edit panel"></button>
+        <aside id="printerEditDrawer" class="edit-drawer" role="dialog" aria-modal="true" aria-labelledby="editDrawerTitle" tabindex="-1">
+            <div class="drawer-header">
+                <div class="drawer-heading">
+                    <span class="drawer-icon" aria-hidden="true">⚙</span>
+                    <div>
+                        <div class="drawer-title-row">
+                            <h2 id="editDrawerTitle">Edit Printer Assignment</h2>
+                            <span class="edit-badge">ACTIVE EDIT</span>
+                        </div>
+                        <p>Change the workflow routed to this configured printer.</p>
+                    </div>
+                </div>
+                <button id="closeDrawer" class="icon-button" type="button" aria-label="Close edit panel">×</button>
+            </div>
+
+            <div class="drawer-content">
+                <div class="selected-printer">
+                    <span class="field-label">SELECTED PRINTER</span>
+                    <strong id="editPrinterName">—</strong>
+                    <code id="editPrinterId">—</code>
+                    <span id="editPrinterPort" class="printer-port">TCP port —</span>
+                </div>
+
+                <form id="printerEditForm">
+                    <fieldset class="workflow-options">
+                        <legend>Assigned Workflow Pipeline</legend>
+                        <label class="workflow-option">
+                            <input type="radio" name="workflowAssignment" value="STANDARD">
+                            <span><strong>Standard Product Label</strong><small>MO and Actmax Part No. product labels.</small></span>
+                        </label>
+                        <label class="workflow-option">
+                            <input type="radio" name="workflowAssignment" value="ARN">
+                            <span><strong>ARN Customer Workflow</strong><small>Carton setup, product trace scans, and ARN carton labels.</small></span>
+                        </label>
+                        <label class="workflow-option">
+                            <input type="radio" name="workflowAssignment" value="UNASSIGNED">
+                            <span><strong>Unassigned / Standby</strong><small>This printer is not routed to either print workflow.</small></span>
+                        </label>
+                    </fieldset>
+                    <div id="editImpact" class="edit-impact" role="status">Select a workflow or leave this printer unassigned.</div>
+                    <div id="drawerError" class="drawer-error" role="alert" hidden></div>
+                    <div class="drawer-actions">
+                        <button id="cancelEdit" class="button button-secondary" type="button">Cancel</button>
+                        <button id="savePrinterAssignment" class="button button-primary" type="submit">Save Assignment</button>
+                    </div>
+                </form>
+            </div>
+        </aside>
+    </div>
 </body>
 </html>
