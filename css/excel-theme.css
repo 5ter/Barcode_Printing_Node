@@ -1,0 +1,69 @@
+/* Palette overrides for the Tailwind-based Excel importer and its result pages. */
+[data-excel-theme] {
+    color-scheme: dark;
+    background: #121212 !important;
+    color: #f8fafc;
+    font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif;
+}
+
+[data-excel-theme] main,
+[data-excel-theme] .bg-surface { background-color: #121212 !important; }
+[data-excel-theme] .bg-surface\/90 { background-color: rgb(18 18 18 / .9) !important; }
+[data-excel-theme] .bg-surface-container-lowest { background-color: #1c1c1f !important; }
+[data-excel-theme] .bg-surface-container-low { background-color: #202024 !important; }
+[data-excel-theme] .bg-surface-container-low\/60 { background-color: rgb(32 32 36 / .6) !important; }
+[data-excel-theme] .bg-surface-container { background-color: #252128 !important; }
+[data-excel-theme] .bg-surface-container-high { background-color: #2b2630 !important; }
+[data-excel-theme] .bg-surface-container-high\/80 { background-color: rgb(43 38 48 / .8) !important; }
+[data-excel-theme] .bg-surface-container-highest,
+[data-excel-theme] .bg-surface-variant { background-color: #332c38 !important; }
+[data-excel-theme] .bg-surface-dim { background-color: #0d0d0e !important; }
+[data-excel-theme] .bg-primary,
+[data-excel-theme] .bg-primary-container { background-color: #7c3aed !important; }
+[data-excel-theme] .bg-primary-fixed,
+[data-excel-theme] .bg-primary-fixed\/20 { background-color: #312048 !important; }
+[data-excel-theme] .bg-primary\/10 { background-color: rgb(124 58 237 / .16) !important; }
+[data-excel-theme] .bg-secondary-container\/40 { background-color: rgb(91 72 125 / .4) !important; }
+[data-excel-theme] .bg-tertiary,
+[data-excel-theme] .bg-tertiary-container { background-color: #0e7490 !important; }
+[data-excel-theme] .bg-tertiary-fixed,
+[data-excel-theme] .bg-tertiary-fixed\/30 { background-color: #103941 !important; }
+
+[data-excel-theme] .text-on-surface { color: #f8fafc !important; }
+[data-excel-theme] .text-on-surface-variant,
+[data-excel-theme] .text-secondary,
+[data-excel-theme] .text-outline { color: #cbd5e1 !important; }
+[data-excel-theme] .text-primary,
+[data-excel-theme] .text-primary-container { color: #a78bfa !important; }
+[data-excel-theme] .text-tertiary { color: #67e8f9 !important; }
+[data-excel-theme] .text-on-primary { color: #fff !important; }
+[data-excel-theme] .text-on-secondary-container { color: #ede9fe !important; }
+[data-excel-theme] .text-on-tertiary,
+[data-excel-theme] .text-on-tertiary-fixed { color: #ecfeff !important; }
+[data-excel-theme] .text-error { color: #fca5a5 !important; }
+
+[data-excel-theme] .border-surface-container { border-color: #3f3f46 !important; }
+[data-excel-theme] .border-outline-variant\/40 { border-color: rgb(113 113 122 / .7) !important; }
+[data-excel-theme] .border-primary { border-color: #7c3aed !important; }
+[data-excel-theme] .border-tertiary { border-color: #06b6d4 !important; }
+[data-excel-theme] .focus\:border-primary:focus { border-color: #06b6d4 !important; }
+[data-excel-theme] .focus\:bg-surface-container-lowest:focus { background-color: #1c1c1f !important; }
+[data-excel-theme] .hover\:bg-primary:hover { background-color: #6d28d9 !important; }
+[data-excel-theme] .hover\:bg-surface-container-high:hover,
+[data-excel-theme] .hover\:bg-surface-container-high\/80:hover { background-color: #332c38 !important; }
+[data-excel-theme] .hover\:bg-surface-container-low:hover,
+[data-excel-theme] .hover\:bg-surface-container-low\/50:hover,
+[data-excel-theme] .hover\:bg-surface-container-low\/60:hover { background-color: #28232c !important; }
+[data-excel-theme] .hover\:bg-surface-dim:hover { background-color: #0d0d0e !important; }
+
+[data-excel-theme].bg-light { background: #121212 !important; }
+[data-excel-theme] .card,
+[data-excel-theme] .list-group-item { border-color: #3f3f46; background: #1c1c1f; color: #f8fafc; }
+[data-excel-theme] .text-success { color: #6ee7b7 !important; }
+[data-excel-theme] .text-danger { color: #fca5a5 !important; }
+[data-excel-theme] .btn-primary { border-color: #7c3aed; background: #7c3aed; }
+[data-excel-theme] .btn-primary:hover { border-color: #6d28d9; background: #6d28d9; }
+[data-excel-theme] .btn-warning { border-color: #06b6d4; background: #06b6d4; color: #082f49; }
+[data-excel-theme] .badge.bg-primary { background-color: #7c3aed !important; }
+[data-excel-theme] .badge.bg-warning { background-color: #06b6d4 !important; color: #082f49; }
+[data-excel-theme] .badge.bg-secondary { background-color: #52525b !important; }

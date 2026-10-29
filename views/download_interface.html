@@ -3,12 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0d0912">
   <title>Barcode Label Download Tool</title>
   <link href="css/bootstrap.min.css" rel="stylesheet"> 
+  <link href="css/download-interface.css" rel="stylesheet">
+  <link href="css/theme-modes.css" rel="stylesheet">
 </head>
-<body class="bg-light">
+<body class="download-page">
 
-  <div class="container mt-5 p-4 bg-white rounded shadow-sm" style="max-width: 500px;">
+  <div class="container download-card mt-5 p-4" style="max-width: 500px;">
+    <div class="download-card-toolbar">
+      <span>ACTMAX tools</span>
+      <button id="downloadThemeToggle" class="btn btn-sm download-theme-toggle" type="button">☀ Light</button>
+    </div>
     <h2 class="mb-4 text-primary">Barcode Label Download Tool</h2>
     <p class="text-secondary">Select a date range to download the filtered table data as a CSV file.</p>
     
@@ -49,6 +56,29 @@
 
         // Set the End Date input value to today's date upon loading
         document.addEventListener('DOMContentLoaded', (event) => {
+            const modeKey = 'actmax-color-mode';
+            const savedCookie = document.cookie.match(/(?:^|; )actmax_color_mode=(dark|light)(?:;|$)/);
+            let colorMode = savedCookie ? savedCookie[1] : 'dark';
+            try {
+              const savedLocal = window.localStorage.getItem(modeKey);
+              if (!savedCookie && (savedLocal === 'dark' || savedLocal === 'light')) colorMode = savedLocal;
+            } catch (error) {
+              // The cookie remains available when local storage is disabled.
+            }
+            const themeButton = document.getElementById('downloadThemeToggle');
+            const applyColorMode = (mode, persist) => {
+              colorMode = mode === 'light' ? 'light' : 'dark';
+              document.documentElement.dataset.colorMode = colorMode;
+              document.documentElement.style.colorScheme = colorMode;
+              document.querySelector('meta[name="theme-color"]').content = colorMode === 'dark' ? '#0d0912' : '#f8f9ff';
+              themeButton.textContent = colorMode === 'dark' ? '☀ Light' : '☾ Dark';
+              themeButton.setAttribute('aria-label', colorMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+              if (!persist) return;
+              try { window.localStorage.setItem(modeKey, colorMode); } catch (error) { /* cookie fallback */ }
+              document.cookie = 'actmax_color_mode=' + colorMode + '; Max-Age=31536000; Path=/; SameSite=Lax';
+            };
+            applyColorMode(colorMode, false);
+            themeButton.addEventListener('click', () => applyColorMode(colorMode === 'dark' ? 'light' : 'dark', true));
             const todayDate = getTodayDateString();
             document.getElementById('endDate').value = todayDate;
             

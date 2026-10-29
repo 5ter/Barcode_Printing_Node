@@ -1,18 +1,20 @@
 :root {
-    color-scheme: light;
-    font-family: "Segoe UI", Arial, sans-serif;
-    color: #102035;
-    background: #f7f8fd;
+    color-scheme: dark;
+    font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif;
+    color: #f8fafc;
+    background: #121212;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
-    --navy: #1e2d42;
-    --blue: #1054d8;
-    --muted: #525a6b;
-    --border: #e3e7ef;
+    --navy: #121212;
+    --blue: #7c3aed;
+    --accent: #06b6d4;
+    --muted: #cbd5e1;
+    --border: #3f3f46;
+    --mono: "JetBrains Mono", Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; display: flex; flex-direction: column; }
+body { margin: 0; min-width: 320px; min-height: 100vh; display: flex; flex-direction: column; background: #121212; }
 a { color: inherit; }
 
 .topbar {
@@ -27,7 +29,7 @@ a { color: inherit; }
 .brand { display: flex; flex-direction: column; gap: 4px; text-decoration: none; white-space: nowrap; }
 .brand-name { font-size: 19px; font-weight: 800; letter-spacing: .07em; }
 .brand-name span { padding: 0 5px; color: #aabbd8; }
-.brand-caption { color: #adbed8; font: 700 10px/1.2 Consolas, monospace; letter-spacing: .13em; }
+.brand-caption { color: #adbed8; font: 700 10px/1.2 var(--mono); letter-spacing: .13em; }
 .top-nav { display: flex; align-items: stretch; align-self: stretch; gap: 10px; }
 .top-nav a, .nav-current { display: flex; align-items: center; padding: 0 19px; border-radius: 5px; color: #d1d9e7; font-weight: 600; text-decoration: none; }
 .top-nav a:hover { background: #2a3a53; color: #fff; }
@@ -36,16 +38,16 @@ a { color: inherit; }
 
 .main-content { width: min(1120px, calc(100% - 36px)); margin: 0 auto; padding: 72px 0 58px; flex: 1; }
 .intro { max-width: 760px; margin: 0 auto 45px; text-align: center; }
-.eyebrow { margin: 0 0 14px; color: #164fbd; font: 800 12px Consolas, monospace; letter-spacing: .11em; }
+.eyebrow { margin: 0 0 14px; color: #164fbd; font: 800 12px var(--mono); letter-spacing: .11em; }
 .eyebrow span { margin-right: 7px; font-size: 17px; }
 .intro h1 { margin: 0; color: #102035; font-size: clamp(30px, 4vw, 40px); line-height: 1.2; letter-spacing: -.035em; }
 .intro-copy { max-width: 680px; margin: 12px auto 0; color: var(--muted); font-size: 18px; line-height: 1.6; }
 .workflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; }
 .workflow-card { display: flex; min-height: 280px; flex-direction: column; padding: 31px 30px 29px; border: 1px solid var(--border); border-radius: 10px; background: #fff; box-shadow: 0 2px 4px rgb(18 34 58 / 5%); }
-.card-kicker { color: #6d7890; font: 800 10px Consolas, monospace; letter-spacing: .12em; }
+.card-kicker { color: #6d7890; font: 800 10px var(--mono); letter-spacing: .12em; }
 .workflow-card h2 { margin: 11px 0 8px; font-size: 27px; line-height: 1.2; letter-spacing: -.025em; }
 .workflow-card p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.75; }
-.workflow-card .assigned-printer { margin-top: 10px; color: #536177; font: 600 11px Consolas, monospace; line-height: 1.4; }
+.workflow-card .assigned-printer { margin-top: 10px; color: #536177; font: 600 11px var(--mono); line-height: 1.4; }
 .assigned-printer span { color: #17634a; }
 .card-rule { height: 1px; margin: 24px 0 20px; background: #e7eaf0; }
 .workflow-button { display: flex; min-height: 60px; align-items: center; justify-content: center; gap: 12px; margin-top: auto; border-radius: 5px; color: #fff; font-size: 16px; font-weight: 700; text-align: center; text-decoration: none; transition: filter .15s ease, transform .15s ease; }
@@ -54,7 +56,7 @@ a { color: inherit; }
 .workflow-button span { font-size: 22px; line-height: 1; }
 .arn-button { background: var(--blue); }
 .standard-button { background: var(--navy); }
-.station-note { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 43px 0 0; color: #596174; font: 600 13px Consolas, monospace; letter-spacing: .025em; }
+.station-note { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 43px 0 0; color: #596174; font: 600 13px var(--mono); letter-spacing: .025em; }
 .ready-mark { display: grid; width: 19px; height: 19px; place-items: center; border: 2px solid #3c9878; border-radius: 50%; color: #23805e; font: 800 12px Arial, sans-serif; }
 .page-footer { display: flex; justify-content: space-between; gap: 18px; padding: 15px clamp(18px, 3vw, 42px); border-top: 1px solid #e4e8ef; background: #f0f2f8; color: #626b7c; font: 600 10px Consolas, monospace; letter-spacing: .08em; }
 
@@ -83,3 +85,27 @@ a { color: inherit; }
     .station-note { margin-top: 27px; font-size: 11px; text-align: center; }
     .page-footer { flex-direction: column; text-align: center; line-height: 1.5; }
 }
+
+/* Shared charcoal, violet, and cyan palette. */
+.topbar { border-bottom: 1px solid #30263c; }
+.brand-name span { color: var(--accent); }
+.brand-caption, .config-badge { color: #d7c9e2; }
+.config-badge { border-color: #5b3e73; }
+.top-nav a, .nav-current { color: #d8d4df; }
+.top-nav a:hover { background: #292332; }
+.top-nav .nav-current { background: var(--blue); }
+.eyebrow { color: var(--accent); }
+.intro h1 { color: #f8fafc; }
+.workflow-card { border-color: var(--border); background: #1c1c1f; box-shadow: 0 10px 25px rgb(0 0 0 / 22%); }
+.workflow-card { transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.workflow-card:hover { border-color: #5b3e73; box-shadow: 0 16px 32px rgb(0 0 0 / 30%); transform: translateY(-3px); }
+.card-kicker { color: #c4b5d6; }
+.workflow-card .assigned-printer { color: #d7c9e2; }
+.assigned-printer span { color: #67e8f9; }
+.card-rule { background: #3f3f46; }
+.arn-button { background: var(--blue); }
+.standard-button { background: #27212e; border: 1px solid #5b3e73; }
+.workflow-button:focus-visible, select:focus-visible, .top-nav a:focus-visible { outline-color: var(--accent); }
+.station-note { color: #cbd5e1; }
+.ready-mark { border-color: #06b6d4; color: #67e8f9; }
+.page-footer { border-top-color: #3f3f46; background: #18181b; color: #cbd5e1; }

@@ -1,16 +1,17 @@
 :root {
-    color-scheme: light;
-    --arn-ink: #0b1c30;
-    --arn-muted: #596579;
-    --arn-slate: #0f172a;
-    --arn-blue: #0d52d6;
-    --arn-blue-soft: #eaf1ff;
-    --arn-border: #d8e0ec;
-    --arn-canvas: #f6f8fc;
-    --arn-green: #087b55;
-    --arn-green-soft: #e8f8f1;
-    --arn-red: #b42318;
-    --arn-red-soft: #fff0ee;
+    color-scheme: dark;
+    --arn-ink: #f8fafc;
+    --arn-muted: #cbd5e1;
+    --arn-slate: #121212;
+    --arn-blue: #7c3aed;
+    --arn-blue-soft: #2a1d3b;
+    --arn-accent: #06b6d4;
+    --arn-border: #3f3f46;
+    --arn-canvas: #121212;
+    --arn-green: #34d399;
+    --arn-green-soft: #123b31;
+    --arn-red: #f87171;
+    --arn-red-soft: #45232b;
     font-family: "Hanken Grotesk", "Segoe UI", sans-serif;
 }
 
@@ -104,21 +105,76 @@ button, input, select { font: inherit; }
 .arn-scan-value { min-width:0; overflow-wrap:anywhere; font:600 13px "JetBrains Mono", monospace; }
 .arn-scan-time { display:block; margin-top:4px; color:#718097; font:500 10px "JetBrains Mono", monospace; }
 .arn-scan-empty { padding:28px 10px; color:#748197; text-align:center; }
+.arn-current-box-actions { margin-top:16px; padding-top:16px; border-top:1px solid #e8edf4; }
+.arn-current-box-actions .arn-button-block { margin-top:0; }
 .arn-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .arn-actions .arn-button { flex:1 1 200px; }
 .arn-footer { margin-top:30px; padding:13px 20px; border-top:1px solid var(--arn-border); color:#647187; font:500 11px "JetBrains Mono", monospace; }
 .arn-hidden { display:none !important; }
 @media (max-width: 900px) {
-    .arn-layout, .arn-scan-grid { grid-template-columns:1fr; }
+    .arn-layout { grid-template-columns:1fr !important; }
+    .arn-scan-grid { grid-template-columns:1fr; }
     .arn-metadata-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
 }
 @media (max-width: 560px) {
     .arn-header { align-items:flex-start; }
     .arn-header-controls { flex-direction:column; align-items:flex-end; }
     .arn-main { width:calc(100% - 22px); margin-top:14px; }
-    .arn-stepper { gap:8px; padding:11px; }
-    .arn-step { gap:6px; font-size:12px; }
-    .arn-step-line { width:16px; }
+    .arn-card { padding:15px; }
+    .arn-stepper { align-items:flex-start; justify-content:space-between; gap:6px; padding:11px; }
+    .arn-step { flex:1; align-items:flex-start; gap:6px; font-size:11px; line-height:1.25; }
+    .arn-step-line { display:none; }
     .arn-form-grid { grid-template-columns:1fr; }
-    .arn-metadata-grid { grid-template-columns:1fr 1fr; }
+    .arn-metadata-grid { grid-template-columns:1fr; }
+    .arn-meta-cell { padding:11px; }
+    .arn-scan-item { align-items:flex-start; flex-direction:column; }
+    .arn-actions .arn-button { flex-basis:100%; }
+}
+
+/* Shared charcoal, violet, and cyan palette. */
+.arn-header { border-bottom-color: #30263c; }
+.arn-brand small, .arn-header-controls label { color: #d7c9e2; }
+.arn-header select { border-color: #5b3e73; background: #242028; color: #f8fafc; }
+.arn-stepper, .arn-card { background: #1c1c1f; box-shadow: 0 10px 25px rgb(0 0 0 / 18%); }
+.arn-step { color: #a8a2b2; }
+.arn-step.active { color: var(--arn-accent); }
+.arn-step-number { background: #28212e; }
+.arn-step.active .arn-step-number { background: var(--arn-blue); }
+.arn-step-line { border-top-color: #4a3b55; }
+.arn-card-title, .arn-current-box-actions { border-color: #3f3f46; }
+.arn-kicker, .arn-table-code { color: var(--arn-accent); }
+.arn-directive { border-color: #4d3970; background: #241a31; color: #e9ddf7; }
+.arn-directive strong { color: var(--arn-accent); }
+.arn-field label { color: #d7c9e2; }
+.arn-field input, .arn-scan-input { border-color: #51405e; background: #121212; color: var(--arn-ink); }
+.arn-field input:focus, .arn-scan-input:focus { border-color: var(--arn-accent); box-shadow: 0 0 0 3px #06b6d433; }
+.arn-help, .arn-notice, .arn-table-subtext, .arn-table-capacity, .arn-table-empty, .arn-scan-time, .arn-scan-empty, .arn-footer { color: #b9b6c2; }
+.arn-metadata { border-color: #3f3f46; background: #252128; }
+.arn-meta-cell { border-color: #48414e; background: #18181b; }
+.arn-meta-label { color: #a8a2b2; }
+.arn-button-primary { background: var(--arn-blue); }
+.arn-button-primary:hover:not(:disabled) { background: #6d28d9; }
+.arn-button-secondary { border-color: #51405e; background: #28212e; color: var(--arn-ink); }
+.arn-button-danger { border-color: #7f3b48; background: #2b1d24; color: #fca5a5; }
+.arn-alert-info, .arn-lock-card { border-color: #286a7b; background: #102c33; color: #b9f3ff; }
+.arn-badge, .arn-status-sealed { color: #9ff2d0; border-color: #28765d; }
+.arn-table th { background: #28212e; color: #d7c9e2; }
+.arn-table td { border-bottom-color: #3a3540; }
+.arn-table tbody tr:hover { background: #26222d; }
+.arn-status-open, .arn-status-printing { color: #b9f3ff; border-color: #286a7b; background: #102c33; }
+.arn-status-unknown { color: #cbd5e1; border-color: #4a4350; background: #29262e; }
+.arn-progress-track { background: #34303a; }
+.arn-progress-bar { background: var(--arn-accent); transition: width .45s cubic-bezier(.2, .8, .2, 1); }
+.arn-scan-item { border-color: #45404b; background: #252128; transition: border-color .18s ease, background-color .18s ease, transform .18s ease; }
+.arn-scan-item:hover { border-color: #287d8e; background: #1b3035; transform: translateX(2px); }
+.arn-button { transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.arn-button:hover:not(:disabled) { transform: translateY(-1px); }
+.arn-card { transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.arn-card:hover { border-color: #5b3e73; box-shadow: 0 14px 30px rgb(0 0 0 / 28%); }
+.arn-step, .arn-step-number { transition: color .2s ease, background-color .2s ease, border-color .2s ease; }
+.arn-step.active .arn-step-number { animation: arn-active-step-pulse 1.8s ease-in-out infinite; }
+
+@keyframes arn-active-step-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(6 182 212 / 0), 0 0 0 rgb(124 58 237 / 0); }
+    50% { box-shadow: 0 0 0 7px rgb(6 182 212 / 16%), 0 0 20px rgb(124 58 237 / 42%); }
 }

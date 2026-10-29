@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitButton = document.getElementById('submitImportBtn');
     const toast = document.getElementById('toastNotification');
     const closeToastButton = document.getElementById('closeToast');
+    const ingestionLogRows = document.getElementById('ingestionLogRows');
+    const ingestionLogCount = document.getElementById('ingestionLogCount');
 
     if (!fileInput || !fileNameDisplay || !submitButton) return;
 
@@ -35,11 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // These routes are not implemented in this app yet.
     document.querySelectorAll('[data-path="audit-log"], [data-path="settings"]')
         .forEach(link => { link.hidden = true; });
-    document.querySelector('a[href="#history-section"]')?.setAttribute('hidden', '');
-    document.getElementById('history-section')?.setAttribute('hidden', '');
 
-    // Manual registration and the history panel in the supplied mockup are not
-    // backed by server endpoints. Keep the screen focused on real workbook import.
+    // Manual registration is not backed by a server endpoint. Keep the screen
+    // focused on the real workbook importer and its persisted audit trail.
     document.getElementById('modeManualBtn')?.setAttribute('hidden', '');
     document.getElementById('manualEntrySection')?.setAttribute('hidden', '');
     const terminalDescription = document.querySelector('#modeBulkBtn')?.parentElement?.parentElement
@@ -136,6 +136,131 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     closeToastButton?.addEventListener('click', () => toast?.classList.add('hidden'));
+
+    function createHistoryCell() {
+        const cell = document.createElement('td');
+        cell.className = 'py-space-md px-space-md';
+        return cell;
+    }
+
+    function createHistoryText(className, value) {
+        const element = document.createElement('span');
+        element.className = className;
+        element.textContent = value;
+        return element;
+    }
+
+    function formatRole(role) {
+        const value = String(role || '').trim().toLowerCase();
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Unknown';
+    }
+
+    function formatTimestamp(value) {
+        const timestamp = new Date(value);
+        if (Number.isNaN(timestamp.getTime())) return String(value || 'Unknown time');
+        return new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium', timeStyle: 'short'
+        }).format(timestamp);
+    }
+
+    function renderHistoryMessage(message) {
+        if (!ingestionLogRows) return;
+        const row = document.createElement('tr');
+        const cell = createHistoryCell();
+        cell.colSpan = 6;
+        cell.classList.add('text-on-surface-variant', 'text-center');
+        cell.textContent = message;
+        row.append(cell);
+        ingestionLogRows.replaceChildren(row);
+        ingestionLogRows.hidden = false;
+    }
+
+    function renderIngestionHistory(rows) {
+        if (!ingestionLogRows) return;
+        if (!rows.length) {
+            ingestionLogCount.textContent = 'No committed imports yet';
+            renderHistoryMessage('No workbook imports have been committed since this audit log was added.');
+            return;
+        }
+
+        ingestionLogCount.textContent = 'Displaying ' + rows.length + ' most recent import' + (rows.length === 1 ? '' : 's');
+        const fragment = document.createDocumentFragment();
+        rows.forEach(entry => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-surface-container-low/50 transition-colors';
+
+            const sourceCell = createHistoryCell();
+            const sourceGroup = document.createElement('div');
+            sourceGroup.className = 'flex items-center gap-space-sm';
+            const icon = createHistoryText('material-symbols-outlined text-tertiary text-[20px]', 'check_circle');
+            const sourceCopy = document.createElement('div');
+            sourceCopy.className = 'flex flex-col min-w-0';
+            sourceCopy.append(
+                createHistoryText('font-label-code-md text-label-code-md font-semibold text-on-surface truncate', entry.sourceFileName || 'Unnamed workbook'),
+                createHistoryText(
+                    'font-label-code-sm text-label-code-sm text-on-surface-variant',
+                    formatBytes(Number(entry.fileSizeBytes) || 0) + ' · Audit #' + entry.id
+                )
+            );
+            sourceGroup.append(icon, sourceCopy);
+            sourceCell.append(sourceGroup);
+
+            const schemaCell = createHistoryCell();
+            schemaCell.append(createHistoryText(
+                'font-label-code-sm text-label-code-sm bg-surface-container-high px-space-sm py-0.5 rounded text-on-surface font-semibold',
+                String(entry.schemaType || 'Unknown') + ' Workbook'
+            ));
+
+            const rowCell = createHistoryCell();
+            const rowCopy = document.createElement('div');
+            rowCopy.className = 'flex flex-col';
+            rowCopy.append(
+                createHistoryText('font-label-code-md text-label-code-md text-on-surface font-semibold', String(entry.rowsProcessed || 0) + ' rows processed'),
+                createHistoryText(
+                    'font-label-code-sm text-label-code-sm text-on-surface-variant',
+                    String(entry.insertedRows || 0) + ' added · ' + String(entry.updatedRows || 0) +
+                    ' updated · ' + String(entry.skippedRows || 0) + ' unchanged'
+                )
+            );
+            rowCell.append(rowCopy);
+
+            const statusCell = createHistoryCell();
+            const status = String(entry.status || 'UNKNOWN').replace(/_/g, ' ');
+            statusCell.append(createHistoryText(
+                'inline-flex items-center gap-1 font-label-code-sm text-label-code-sm px-space-xs py-0.5 rounded bg-tertiary-container text-on-tertiary font-medium',
+                status === 'SUCCESS' ? 'Committed' : status
+            ));
+
+            const roleCell = createHistoryCell();
+            roleCell.append(createHistoryText('font-body-sm text-body-sm font-semibold text-on-surface', formatRole(entry.uploadedBy)));
+
+            const timeCell = createHistoryCell();
+            timeCell.append(createHistoryText('font-label-code-sm text-label-code-sm text-on-surface-variant', formatTimestamp(entry.uploadedAt)));
+
+            row.append(sourceCell, schemaCell, rowCell, statusCell, roleCell, timeCell);
+            fragment.append(row);
+        });
+        ingestionLogRows.replaceChildren(fragment);
+        ingestionLogRows.hidden = false;
+    }
+
+    async function loadIngestionHistory() {
+        if (!ingestionLogRows) return;
+        renderHistoryMessage('Loading committed workbook imports…');
+        try {
+            const response = await fetch('/api/ingestion-log', { cache: 'no-store', credentials: 'same-origin' });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.status !== 'success') {
+                throw new Error(payload.message || 'Could not load the Excel ingestion audit log.');
+            }
+            renderIngestionHistory(Array.isArray(payload.rows) ? payload.rows : []);
+        } catch (error) {
+            if (ingestionLogCount) ingestionLogCount.textContent = 'Audit log unavailable';
+            renderHistoryMessage(error.message);
+        }
+    }
+
+    loadIngestionHistory();
 
     submitButton.addEventListener('click', async () => {
         const file = fileInput.files[0];

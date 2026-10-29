@@ -1,11 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
+    const colorModeKey = 'actmax-color-mode';
     const mainPort = body.dataset.mainAppPort || (window.location.port && window.location.port !== '3005'
         ? window.location.port
         : '3003');
     const excelPort = body.dataset.excelAppPort || '3005';
     let currentRole = null;
     let lastFocus = null;
+
+    function getSavedColorMode() {
+        const cookieMatch = document.cookie.match(/(?:^|; )actmax_color_mode=(dark|light)(?:;|$)/);
+        if (cookieMatch) return cookieMatch[1];
+        try {
+            const saved = window.localStorage.getItem(colorModeKey);
+            return saved === 'dark' || saved === 'light' ? saved : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function applyColorMode(mode, persist = false) {
+        const selectedMode = mode === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.colorMode = selectedMode;
+        document.documentElement.style.colorScheme = selectedMode;
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.content = selectedMode === 'dark' ? '#0d0912' : '#f8f9ff';
+        if (!persist) return selectedMode;
+        try {
+            window.localStorage.setItem(colorModeKey, selectedMode);
+        } catch (error) {
+            // Cookie persistence still keeps the choice consistent across the main and Excel apps.
+        }
+        document.cookie = 'actmax_color_mode=' + selectedMode + '; Max-Age=31536000; Path=/; SameSite=Lax';
+        return selectedMode;
+    }
+
+    let colorMode = applyColorMode(getSavedColorMode() || 'dark');
 
     function serviceUrl(port, pathname, query = {}) {
         const url = new URL(window.location.href);
@@ -44,11 +74,21 @@ document.addEventListener('DOMContentLoaded', () => {
     brand.className = 'app-shell-brand';
     brand.href = serviceUrl(mainPort, '/');
     brand.setAttribute('aria-label', 'ACTMAX Traceability System home');
+    const brandLogo = document.createElement('img');
+    brandLogo.className = 'app-shell-logo';
+    brandLogo.src = '/image/actmax_logo.png';
+    brandLogo.alt = '';
+    brandLogo.width = 40;
+    brandLogo.height = 40;
+    brandLogo.decoding = 'async';
+    const brandCopy = document.createElement('span');
+    brandCopy.className = 'app-shell-brand-copy';
     const brandName = document.createElement('strong');
     brandName.innerHTML = 'ACTMAX <span aria-hidden="true">&gt;&gt;</span>';
     const brandCaption = document.createElement('small');
     brandCaption.textContent = 'TRACEABILITY SYSTEM';
-    brand.append(brandName, brandCaption);
+    brandCopy.append(brandName, brandCaption);
+    brand.append(brandLogo, brandCopy);
 
     const nav = document.createElement('nav');
     nav.className = 'app-shell-nav';
@@ -65,12 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const account = document.createElement('div');
     account.className = 'app-shell-account';
+    const themeButton = document.createElement('button');
+    themeButton.type = 'button';
+    themeButton.className = 'app-shell-theme-toggle';
     const roleBadge = document.createElement('span');
     roleBadge.className = 'app-shell-role';
     roleBadge.hidden = true;
     const accountButton = document.createElement('button');
     accountButton.type = 'button';
-    account.append(roleBadge, accountButton);
+    account.append(themeButton, roleBadge, accountButton);
     shell.append(brand, nav, account);
     body.insertBefore(shell, body.firstChild);
 
@@ -113,17 +156,29 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRole = role;
         const isAdmin = role === 'ADMIN';
         const canUpload = role === 'ADMIN' || role === 'SUPERVISOR';
+        const canRunWorkflow = role === 'OPERATOR' || isAdmin;
+        const canViewDashboard = role === 'SUPERVISOR' || isAdmin;
         const isSignedIn = Boolean(role);
-        links.arn.hidden = !isSignedIn;
+        links.standard.hidden = !canRunWorkflow;
+        links.arn.hidden = !canRunWorkflow;
         links.excel.hidden = !canUpload;
         links.printer.hidden = !isAdmin;
+        links.dashboard.hidden = !canViewDashboard;
         roleBadge.hidden = !isSignedIn;
-        roleBadge.textContent = role ? role + ' ACCESS' : '';
+        roleBadge.textContent = role ? role.charAt(0) + role.slice(1).toLowerCase() : '';
         accountButton.textContent = isSignedIn ? 'Sign out' : 'Sign in';
         accountButton.setAttribute('aria-label', isSignedIn ? 'Sign out of ACTMAX' : 'Sign in to ACTMAX');
     }
 
+    function updateThemeButton() {
+        const isDark = colorMode === 'dark';
+        themeButton.textContent = isDark ? '\u2600 Light' : '\u263e Dark';
+        themeButton.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+        themeButton.title = themeButton.getAttribute('aria-label');
+    }
+
     updateNavigation(null);
+    updateThemeButton();
 
     async function loadCurrentRole() {
         try {
@@ -165,6 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isProtectedPage) window.location.assign(serviceUrl(mainPort, '/'));
             else window.location.reload();
         }
+    });
+    themeButton.addEventListener('click', () => {
+        colorMode = applyColorMode(colorMode === 'dark' ? 'light' : 'dark', true);
+        updateThemeButton();
     });
     layer.querySelector('#authCancel').addEventListener('click', closeModal);
     layer.addEventListener('click', event => { if (event.target === layer) closeModal(); });

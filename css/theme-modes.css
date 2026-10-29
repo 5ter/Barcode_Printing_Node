@@ -1,0 +1,854 @@
+/*
+ * Shared colour modes. Dark is the original dashboard palette and is the
+ * default. The shell switch persists the selected mode in a cookie so the
+ * main app and the Excel app keep the same preference across their ports.
+ */
+:root,
+html[data-color-mode="dark"] {
+    color-scheme: dark;
+    --app-navy: #100a18;
+    --app-ink: #f8f2ff;
+    --app-muted: #bcaecc;
+    --app-blue: #7e22ce;
+    --app-blue-dark: #6d1db5;
+    --app-accent: #c084fc;
+    --app-canvas: #0d0912;
+    --app-surface: #171020;
+    --app-border: #463057;
+    --app-green: #6ee7b7;
+    --app-red: #fca5a5;
+
+    --arn-ink: #f8f2ff;
+    --arn-muted: #bcaecc;
+    --arn-slate: #100a18;
+    --arn-blue: #7e22ce;
+    --arn-blue-soft: #3a2055;
+    --arn-accent: #c084fc;
+    --arn-border: #463057;
+    --arn-canvas: #0d0912;
+    --arn-green: #6ee7b7;
+    --arn-green-soft: #123b31;
+    --arn-red: #fca5a5;
+    --arn-red-soft: #4a202b;
+
+    --navy: #100a18;
+    --blue: #7e22ce;
+    --accent: #c084fc;
+    --muted: #bcaecc;
+    --border: #463057;
+    --primary: #7e22ce;
+    --primary-dark: #6d1db5;
+    --surface: #171020;
+    --canvas: #0d0912;
+    --green: #6ee7b7;
+    --green-bg: #123b31;
+    --blue-bg: #3a2055;
+    --amber: #fcd34d;
+    --amber-bg: #4a3512;
+
+    --ink: #f8f2ff;
+    --muted-strong: #d7cae4;
+    --surface-raised: #20152c;
+    --surface-hover: #2a1a3a;
+    --surface-strong: #321d46;
+    --line: #463057;
+    --line-subtle: #2c1d3a;
+    --purple: #c084fc;
+    --purple-bright: #d7adff;
+    --purple-deep: #7e22ce;
+    --purple-wash: #3a2055;
+}
+
+body,
+body.standard-page,
+body.download-page,
+[data-excel-theme] {
+    background: #0d0912;
+    color: #f8f2ff;
+}
+
+/* Original dashboard palette across the primary workflows. */
+.app-shell-header { background: #100a18; border-bottom-color: #2c1d3a; }
+.app-shell-brand small { color: #bcaecc; }
+.app-shell-nav a { color: #dacbe7; }
+.app-shell-nav a[aria-current="page"] { background: #7e22ce; }
+.app-shell-role, .app-shell-account button { border-color: #5b3e73; color: #f8f2ff; }
+
+.main-content .intro h1,
+.page-intro h1,
+.arn-page-heading,
+.arn-card h2,
+.arn-card h3 { color: #f8f2ff; }
+.workflow-card { background: #171020; border-color: #463057; }
+.workflow-card:hover { border-color: #8d63aa; }
+.card-kicker, .workflow-card .assigned-printer, .station-note { color: #bcaecc; }
+.assigned-printer span, .ready-mark { color: #6ee7b7; }
+.ready-mark { border-color: #6ee7b7; }
+.card-rule { background: #2c1d3a; }
+.standard-button { background: #20152c; border-color: #5b3e73; }
+.page-footer { background: #100a18; border-top-color: #2c1d3a; color: #bcaecc; }
+
+.arn-stepper, .arn-card { background: #171020; border-color: #463057; }
+.arn-step { color: #bcaecc; }
+.arn-step.active { color: #c084fc; }
+.arn-step-number { background: #20152c; }
+.arn-step.active .arn-step-number { background: #7e22ce; }
+.arn-step-line { border-color: #463057; }
+.arn-directive { border-color: #62427a; background: #20152c; color: #eadff5; }
+.arn-directive strong, .arn-kicker, .arn-table-code { color: #c084fc; }
+.arn-field label { color: #d7cae4; }
+.arn-field input, .arn-scan-input { border-color: #5b3e73; background: #0d0912; color: #f8f2ff; }
+.arn-field input:focus, .arn-scan-input:focus { border-color: #c084fc; box-shadow: 0 0 0 3px #c084fc33; }
+.arn-help, .arn-notice, .arn-table-subtext, .arn-table-capacity, .arn-table-empty, .arn-scan-time, .arn-scan-empty, .arn-footer { color: #bcaecc; }
+.arn-metadata, .arn-scan-item { border-color: #463057; background: #20152c; }
+.arn-meta-cell { border-color: #463057; background: #171020; }
+.arn-meta-label { color: #bcaecc; }
+.arn-button-primary { background: #7e22ce; }
+.arn-button-primary:hover:not(:disabled) { background: #9333ea; }
+.arn-button-secondary { border-color: #5b3e73; background: #20152c; color: #f8f2ff; }
+.arn-alert-info, .arn-lock-card { border-color: #62427a; background: #20152c; color: #eadff5; }
+.arn-table th { background: #20152c; color: #d7cae4; }
+.arn-table td { border-bottom-color: #2c1d3a; }
+.arn-table tbody tr:hover { background: #2a1a3a; }
+.arn-status-open, .arn-status-printing { color: #e6d3ff; border-color: #7547a1; background: #3a2055; }
+.arn-status-unknown { color: #d7cae4; border-color: #463057; background: #20152c; }
+.arn-progress-track { background: #2c1d3a; }
+.arn-progress-bar { background: #c084fc; }
+.arn-scan-item:hover { border-color: #8d63aa; background: #2a1a3a; }
+.arn-card:hover { border-color: #8d63aa; }
+
+.standard-page .card { background: #171020; border-color: #463057; }
+.standard-page .alert-light { border-color: #62427a; background: #20152c; color: #eadff5; }
+.standard-page .form-label { color: #d7cae4; }
+.standard-page .form-control { border-color: #5b3e73; background: #0d0912; color: #f8f2ff; }
+.standard-page .form-control:focus { border-color: #c084fc; background: #0d0912; box-shadow: 0 0 0 3px #c084fc33; }
+.standard-page .form-control[readonly] { background: #20152c; color: #d7cae4; }
+
+.page-intro .eyebrow { color: #c084fc; }
+.page-intro .intro-copy p, .security-note { color: #bcaecc; }
+.button-secondary { border-color: #5b3e73; background: #20152c; color: #f8f2ff; }
+.button-secondary:hover:not(:disabled) { background: #2a1a3a; }
+.button-primary { background: #7e22ce; }
+.button-primary:hover:not(:disabled) { background: #9333ea; }
+.message { border-color: #62427a; background: #20152c; color: #eadff5; }
+.summary-card, .inventory-section, .printer-card { background: #171020; border-color: #463057; }
+.summary-label, .summary-unit, .printer-subtitle, .pipeline-label, .printer-detail-label, .config-note { color: #bcaecc; }
+.summary-card strong, .printer-title, .printer-detail-value { color: #f8f2ff; }
+.summary-icon.blue { background: #3a2055; color: #d7adff; }
+.summary-icon.slate, .configured-badge, .workflow-badge.unassigned { background: #20152c; color: #d7cae4; }
+.inventory-toolbar { border-color: #2c1d3a; }
+.search-box { border-color: #5b3e73; background: #171020; color: #bcaecc; }
+.search-box input { color: #f8f2ff; }
+.search-box:focus-within { border-color: #c084fc; box-shadow: 0 0 0 3px #c084fc33; }
+.filter-pills { background: #20152c; }
+.filter-button { color: #bcaecc; }
+.filter-button.selected { background: #3a2055; color: #e6d3ff; }
+.printer-card:hover { border-color: #8d63aa; }
+.printer-details { background: #20152c; }
+.workflow-badge.arn { background: #3a2055; color: #e6d3ff; }
+.edit-button, .restore-defaults-button { background: #3a2055; color: #d7adff; }
+.edit-button:hover { background: #4b286c; }
+.empty-state { border-color: #5b3e73; color: #bcaecc; }
+.edit-drawer { background: #171020; }
+.drawer-header { border-color: #463057; background: #20152c; }
+.drawer-icon, .edit-badge { background: #3a2055; color: #d7adff; }
+.drawer-title-row h2, .selected-printer strong { color: #f8f2ff; }
+.drawer-heading p, .form-field, .device-fields legend, .workflow-options legend, .form-field > small, .form-field > span small, .selected-printer .field-label, .selected-printer code, .printer-port, .workflow-option small { color: #bcaecc; }
+.form-field input { border-color: #5b3e73; background: #0d0912; color: #f8f2ff; }
+.form-field input:focus { border-color: #c084fc; background: #0d0912; box-shadow: 0 0 0 3px #c084fc33; }
+.selected-printer, .workflow-option { border-color: #463057; background: #20152c; }
+.workflow-option:hover { border-color: #8d63aa; background: #2a1a3a; }
+.workflow-option:has(input:checked) { border-color: #c084fc; background: #3a2055; box-shadow: inset 0 0 0 1px #c084fc55; }
+
+/* Dashboard-specific details retain the higher contrast row hierarchy. */
+.page-heading { background: #100a18; }
+.app-shell-header ~ main .eyebrow { color: #c084fc; }
+.app-shell-header ~ main .search-match { border-color: #7547a1; border-left-color: #c084fc; background: #20152c; color: #f8f2ff; }
+.app-shell-header ~ main .search-match span, .app-shell-header ~ main .search-match code { color: #e6d3ff; }
+.app-shell-header ~ main .search-match span::before { background: #c084fc; box-shadow: 0 0 0 3px #c084fc24; }
+.app-shell-header ~ main .search-hit-text { background: #e6d3ff; color: #271238; }
+.app-shell-header ~ main .scan-item.search-hit { border-color: #c084fc; background: #2a1a3a; box-shadow: 0 0 0 1px #c084fc4d, 0 6px 16px #00000024; }
+.app-shell-header ~ main .scan-hit-badge, .app-shell-header ~ main .search-detail-context > span { background: #7e22ce; }
+.app-shell-header ~ main .search-detail-context { border-color: #7547a1; background: #20152c; color: #eadff5; }
+
+[data-excel-theme] main, [data-excel-theme] .bg-surface { background-color: #0d0912 !important; }
+[data-excel-theme] .bg-surface-container-lowest { background-color: #171020 !important; }
+[data-excel-theme] .bg-surface-container-low, [data-excel-theme] .bg-surface-container { background-color: #20152c !important; }
+[data-excel-theme] .bg-surface-container-high, [data-excel-theme] .bg-surface-container-highest, [data-excel-theme] .bg-surface-variant { background-color: #2a1a3a !important; }
+[data-excel-theme] .bg-primary, [data-excel-theme] .bg-primary-container { background-color: #7e22ce !important; }
+[data-excel-theme] .bg-primary-fixed, [data-excel-theme] .bg-primary-fixed\/20 { background-color: #3a2055 !important; }
+[data-excel-theme] .bg-tertiary, [data-excel-theme] .bg-tertiary-container { background-color: #3a2055 !important; }
+[data-excel-theme] .text-primary, [data-excel-theme] .text-primary-container, [data-excel-theme] .text-tertiary { color: #d7adff !important; }
+[data-excel-theme] .border-primary, [data-excel-theme] .border-tertiary { border-color: #c084fc !important; }
+[data-excel-theme] .focus\:border-primary:focus { border-color: #c084fc !important; }
+[data-excel-theme] .hover\:bg-primary:hover { background-color: #9333ea !important; }
+
+html[data-color-mode="light"] {
+    color-scheme: light;
+    --app-navy: #ffffff;
+    --app-ink: #17263c;
+    --app-muted: #607087;
+    --app-blue: #164fbd;
+    --app-blue-dark: #0d3b8f;
+    --app-accent: #1d64c4;
+    --app-canvas: #f4f7fb;
+    --app-surface: #ffffff;
+    --app-border: #d7e1ed;
+    --arn-ink: #17263c;
+    --arn-muted: #607087;
+    --arn-slate: #123b83;
+    --arn-blue: #164fbd;
+    --arn-accent: #1d64c4;
+    --arn-border: #d7e1ed;
+    --arn-canvas: #f4f7fb;
+    --navy: #123b83;
+    --blue: #164fbd;
+    --accent: #1d64c4;
+    --muted: #607087;
+    --border: #d7e1ed;
+    --primary: #164fbd;
+    --primary-dark: #0d3b8f;
+    --surface: #ffffff;
+    --canvas: #f4f7fb;
+    --ink: #17263c;
+    --surface-raised: #f8fafd;
+    --surface-hover: #edf4ff;
+    --surface-strong: #e1edff;
+    --line: #d7e1ed;
+    --line-subtle: #e5edf5;
+    --purple: #1d64c4;
+    --purple-bright: #2563c7;
+    --purple-deep: #164fbd;
+    --purple-wash: #e7f0ff;
+}
+
+html[data-color-mode="light"] body,
+html[data-color-mode="light"] body.standard-page,
+html[data-color-mode="light"] body.download-page,
+html[data-color-mode="light"] [data-excel-theme] { background: #f4f7fb; color: #17263c; }
+html[data-color-mode="light"] .app-shell-header, html[data-color-mode="light"] .page-heading { background: #ffffff; border-color: #d7e1ed; color: #17263c; }
+html[data-color-mode="light"] .app-shell-nav a, html[data-color-mode="light"] .app-shell-account button { color: #42536d; border-color: #c4d4e6; }
+html[data-color-mode="light"] .app-shell-nav a:hover, html[data-color-mode="light"] .app-shell-account button:hover { background: #edf4ff; color: #17263c; }
+html[data-color-mode="light"] .app-shell-role { border-color: #b8cbe4; color: #164fbd; }
+html[data-color-mode="light"] .workflow-card,
+html[data-color-mode="light"] .arn-stepper,
+html[data-color-mode="light"] .arn-card,
+html[data-color-mode="light"] .standard-page .card,
+html[data-color-mode="light"] .summary-card,
+html[data-color-mode="light"] .inventory-section,
+html[data-color-mode="light"] .printer-card,
+html[data-color-mode="light"] .edit-drawer { background: #ffffff; border-color: #d7e1ed; color: #17263c; box-shadow: 0 8px 22px rgb(25 62 110 / 10%); }
+html[data-color-mode="light"] .main-content .intro h1,
+html[data-color-mode="light"] .page-intro h1,
+html[data-color-mode="light"] .arn-page-heading,
+html[data-color-mode="light"] .arn-card h2,
+html[data-color-mode="light"] .arn-card h3,
+html[data-color-mode="light"] .summary-card strong,
+html[data-color-mode="light"] .printer-title,
+html[data-color-mode="light"] .printer-detail-value { color: #17263c; }
+html[data-color-mode="light"] .arn-step-number,
+html[data-color-mode="light"] .arn-metadata,
+html[data-color-mode="light"] .arn-scan-item,
+html[data-color-mode="light"] .printer-details,
+html[data-color-mode="light"] .filter-pills,
+html[data-color-mode="light"] .button-secondary,
+html[data-color-mode="light"] .standard-button,
+html[data-color-mode="light"] .drawer-header,
+html[data-color-mode="light"] .selected-printer,
+html[data-color-mode="light"] .workflow-option { background: #f8fafd; border-color: #d7e1ed; color: #17263c; }
+html[data-color-mode="light"] .arn-field input,
+html[data-color-mode="light"] .arn-scan-input,
+html[data-color-mode="light"] .standard-page .form-control,
+html[data-color-mode="light"] .form-field input,
+html[data-color-mode="light"] .search-box { background: #ffffff; border-color: #c4d4e6; color: #17263c; }
+html[data-color-mode="light"] .arn-help,
+html[data-color-mode="light"] .arn-notice,
+html[data-color-mode="light"] .arn-table-subtext,
+html[data-color-mode="light"] .arn-table-capacity,
+html[data-color-mode="light"] .arn-scan-time,
+html[data-color-mode="light"] .page-intro .intro-copy p,
+html[data-color-mode="light"] .summary-label,
+html[data-color-mode="light"] .summary-unit,
+html[data-color-mode="light"] .printer-subtitle,
+html[data-color-mode="light"] .printer-detail-label,
+html[data-color-mode="light"] .config-note { color: #607087; }
+html[data-color-mode="light"] .arn-directive,
+html[data-color-mode="light"] .arn-alert-info,
+html[data-color-mode="light"] .arn-lock-card,
+html[data-color-mode="light"] .message { background: #eef5ff; border-color: #b8cfe9; color: #244b88; }
+html[data-color-mode="light"] .arn-badge { background: #e7f6ee; color: #17634a; }
+html[data-color-mode="light"] .arn-status-open,
+html[data-color-mode="light"] .arn-status-printing { background: #e7f0ff; border-color: #b8cbe4; color: #164fbd; }
+html[data-color-mode="light"] .arn-status-unknown { background: #f8fafd; border-color: #d7e1ed; color: #607087; }
+html[data-color-mode="light"] .arn-progress-track { background: #e5edf5; }
+html[data-color-mode="light"] .arn-progress-bar { background: #164fbd; }
+html[data-color-mode="light"] .arn-button-secondary { background: #f8fafd; border-color: #c4d4e6; color: #17263c; }
+html[data-color-mode="light"] .arn-button-danger { background: #fff5f5; border-color: #f1c2c7; color: #a62920; }
+html[data-color-mode="light"] .auth-modal { border-color: #d7e1ed; background: #ffffff; color: #17263c; box-shadow: 0 20px 65px rgb(25 62 110 / 20%); }
+html[data-color-mode="light"] .auth-modal label { color: #42536d; }
+html[data-color-mode="light"] .auth-modal input,
+html[data-color-mode="light"] .auth-modal select { border-color: #c4d4e6; background: #ffffff; color: #17263c; }
+html[data-color-mode="light"] .auth-modal-actions button { border-color: #c4d4e6; background: #f8fafd; color: #17263c; }
+
+html[data-color-mode="light"] .app-shell-header ~ main .stat-value,
+html[data-color-mode="light"] .app-shell-header ~ main h1,
+html[data-color-mode="light"] .app-shell-header ~ main h2,
+html[data-color-mode="light"] .app-shell-header ~ main .reference-code,
+html[data-color-mode="light"] .app-shell-header ~ main .quantity,
+html[data-color-mode="light"] .app-shell-header ~ main .detail-header strong { color: #17263c; }
+html[data-color-mode="light"] .app-shell-header ~ main .stat-label,
+html[data-color-mode="light"] .app-shell-header ~ main .field,
+html[data-color-mode="light"] .app-shell-header ~ main thead,
+html[data-color-mode="light"] .app-shell-header ~ main .row-kicker,
+html[data-color-mode="light"] .app-shell-header ~ main .job-line > span,
+html[data-color-mode="light"] .app-shell-header ~ main .minor,
+html[data-color-mode="light"] .app-shell-header ~ main .printed-at,
+html[data-color-mode="light"] .app-shell-header ~ main .updated,
+html[data-color-mode="light"] .app-shell-header ~ main .filter-help,
+html[data-color-mode="light"] .app-shell-header ~ main .table-footer { color: #607087; }
+html[data-color-mode="light"] .app-shell-header ~ main .field input,
+html[data-color-mode="light"] .app-shell-header ~ main .field select,
+html[data-color-mode="light"] .app-shell-header ~ main .page-size select { background: #ffffff; border-color: #c4d4e6; color: #17263c; }
+html[data-color-mode="light"] .app-shell-header ~ main .stat-card,
+html[data-color-mode="light"] .app-shell-header ~ main .filter-card,
+html[data-color-mode="light"] .app-shell-header ~ main .results-card {
+    background: #ffffff;
+    border-color: #d7e1ed;
+    box-shadow: 0 10px 25px rgb(25 62 110 / 7%);
+}
+html[data-color-mode="light"] .app-shell-header ~ main .button.primary {
+    background: #164fbd;
+    box-shadow: 0 6px 18px rgb(22 79 189 / 18%);
+}
+html[data-color-mode="light"] .app-shell-header ~ main .button.primary:hover:not(:disabled) { background: #0d3b8f; }
+html[data-color-mode="light"] .app-shell-header ~ main .results-toolbar,
+html[data-color-mode="light"] .app-shell-header ~ main .table-footer { background: #f8fafd; }
+html[data-color-mode="light"] .app-shell-header ~ main td { background: #ffffff; border-color: #d7e1ed; color: #17263c; }
+html[data-color-mode="light"] .app-shell-header ~ main tbody tr.data-row:hover td,
+html[data-color-mode="light"] .app-shell-header ~ main tbody tr.carton-row.is-expanded td { background: #edf4ff; border-color: #8bb5e8; }
+html[data-color-mode="light"] .app-shell-header ~ main .detail-panel { background: #ffffff; border-color: #c4d4e6; box-shadow: inset 4px 0 0 #164fbd; }
+html[data-color-mode="light"] .app-shell-header ~ main .scan-item { background: #f8fafd; border-color: #d7e1ed; }
+html[data-color-mode="light"] .app-shell-header ~ main .code,
+html[data-color-mode="light"] .app-shell-header ~ main .job-line .code { color: #17263c; }
+html[data-color-mode="light"] .app-shell-header ~ main .secondary { background: #f8fafd; border-color: #c4d4e6; color: #17263c; }
+html[data-color-mode="light"] .app-shell-header ~ main .apply-button { background: #e7f0ff; border-color: #8bb5e8; color: #164fbd; }
+html[data-color-mode="light"] .page-footer { background: #ffffff; border-color: #d7e1ed; color: #607087; }
+html[data-color-mode="light"] .download-page .download-card { background: #ffffff !important; border-color: #d7e1ed; }
+html[data-color-mode="light"] .download-page .download-theme-toggle { border-color: #c4d4e6; background: #edf4ff; color: #17263c; }
+html[data-color-mode="light"] .download-page h2 { color: #164fbd !important; }
+html[data-color-mode="light"] .download-page .text-secondary { color: #607087 !important; }
+html[data-color-mode="light"] .download-page .form-label { color: #42536d; }
+html[data-color-mode="light"] .download-page .form-control { border-color: #c4d4e6; background: #ffffff; color: #17263c; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-match,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context { background: #e7f0ff; border-color: #8bb5e8; color: #164fbd; }
+html[data-color-mode="light"] .app-shell-header ~ main .scan-item.search-hit { background: #edf4ff; border-color: #164fbd; }
+html[data-color-mode="light"] [data-excel-theme] main,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface { background-color: #f4f7fb !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container-lowest { background-color: #ffffff !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container-low,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container { background-color: #f8fafd !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-primary,
+html[data-color-mode="light"] [data-excel-theme] .bg-primary-container { background-color: #164fbd !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-on-surface { color: #17263c !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-on-surface-variant,
+html[data-color-mode="light"] [data-excel-theme] .text-secondary,
+html[data-color-mode="light"] [data-excel-theme] .text-outline { color: #607087 !important; }
+html[data-color-mode="light"] [data-excel-theme] .card,
+html[data-color-mode="light"] [data-excel-theme] .list-group-item { border-color: #d7e1ed; background: #ffffff; color: #17263c; }
+
+/*
+ * Original ACTMAX blue-and-white light theme. These rules intentionally sit
+ * last: the workflow styles also contain the dark palette, so light mode must
+ * explicitly replace every dark surface, violet control, and light-on-dark
+ * text treatment instead of merely changing shared variables.
+ */
+html[data-color-mode="light"] {
+    --app-navy: #ffffff;
+    --app-ink: #0b1c30;
+    --app-muted: #536177;
+    --app-blue: #0d52d6;
+    --app-blue-dark: #003ca7;
+    --app-accent: #0d52d6;
+    --app-canvas: #f8f9ff;
+    --app-surface: #ffffff;
+    --app-border: #cfdced;
+    --arn-ink: #0b1c30;
+    --arn-muted: #536177;
+    --arn-slate: #ffffff;
+    --arn-blue: #0d52d6;
+    --arn-blue-soft: #e7efff;
+    --arn-accent: #0d52d6;
+    --arn-border: #cfdced;
+    --arn-canvas: #f8f9ff;
+    --arn-green: #17634a;
+    --arn-green-soft: #e7f6ee;
+    --arn-red: #a62920;
+    --arn-red-soft: #fff1ef;
+    --navy: #102035;
+    --blue: #0d52d6;
+    --accent: #0d52d6;
+    --muted: #536177;
+    --border: #cfdced;
+    --primary: #0d52d6;
+    --primary-dark: #003ca7;
+    --surface: #ffffff;
+    --canvas: #f8f9ff;
+    --ink: #0b1c30;
+    --muted-strong: #42536d;
+    --surface-raised: #ffffff;
+    --surface-hover: #edf4ff;
+    --surface-strong: #e7efff;
+    --line: #cfdced;
+    --line-subtle: #e3ebf5;
+    --purple: #0d52d6;
+    --purple-bright: #0d52d6;
+    --purple-deep: #003ca7;
+    --purple-wash: #e7efff;
+    --green: #17634a;
+    --green-wash: #e7f6ee;
+    --red: #a62920;
+    --red-wash: #fff1ef;
+    --amber: #704f00;
+    --amber-wash: #fff6df;
+    --amber-bg: #fff6df;
+}
+
+html[data-color-mode="light"] body,
+html[data-color-mode="light"] body.standard-page,
+html[data-color-mode="light"] body.download-page,
+html[data-color-mode="light"] [data-excel-theme] {
+    background: #f8f9ff !important;
+    color: #0b1c30;
+}
+
+html[data-color-mode="light"] .app-shell-header,
+html[data-color-mode="light"] .page-heading,
+html[data-color-mode="light"] .topbar {
+    background: #ffffff;
+    border-color: #d7e1ed;
+    color: #0b1c30;
+}
+html[data-color-mode="light"] .app-shell-brand small,
+html[data-color-mode="light"] .brand-caption,
+html[data-color-mode="light"] .config-badge,
+html[data-color-mode="light"] .breadcrumb,
+html[data-color-mode="light"] .updated { color: #536177; }
+html[data-color-mode="light"] .app-shell-nav a,
+html[data-color-mode="light"] .top-nav a,
+html[data-color-mode="light"] .nav-current,
+html[data-color-mode="light"] .app-shell-account button { color: #42536d; }
+html[data-color-mode="light"] .app-shell-nav a[aria-current="page"],
+html[data-color-mode="light"] .top-nav .nav-current,
+html[data-color-mode="light"] .main-nav a.current {
+    background: #0d52d6;
+    color: #ffffff;
+}
+html[data-color-mode="light"] .app-shell-nav a:hover,
+html[data-color-mode="light"] .top-nav a:hover,
+html[data-color-mode="light"] .main-nav a:hover,
+html[data-color-mode="light"] .app-shell-account button:hover { background: #edf4ff; color: #0b1c30; }
+html[data-color-mode="light"] .app-shell-role,
+html[data-color-mode="light"] .config-badge { border-color: #c4d4e6; color: #244b88; }
+
+html[data-color-mode="light"] .main-content .intro h1,
+html[data-color-mode="light"] .page-intro h1,
+html[data-color-mode="light"] .intro h1,
+html[data-color-mode="light"] .arn-page-heading,
+html[data-color-mode="light"] .arn-card h2,
+html[data-color-mode="light"] .arn-card h3,
+html[data-color-mode="light"] .brand-name,
+html[data-color-mode="light"] h1,
+html[data-color-mode="light"] h2,
+html[data-color-mode="light"] .workflow-option strong,
+html[data-color-mode="light"] .drawer-title-row h2,
+html[data-color-mode="light"] .selected-printer strong { color: #0b1c30; }
+html[data-color-mode="light"] .eyebrow,
+html[data-color-mode="light"] .card-kicker,
+html[data-color-mode="light"] .arn-kicker,
+html[data-color-mode="light"] .arn-table-code,
+html[data-color-mode="light"] .breadcrumb strong,
+html[data-color-mode="light"] .text-button { color: #0d52d6; }
+html[data-color-mode="light"] .intro-copy,
+html[data-color-mode="light"] .workflow-card p,
+html[data-color-mode="light"] .workflow-card .assigned-printer,
+html[data-color-mode="light"] .station-note,
+html[data-color-mode="light"] .subheading,
+html[data-color-mode="light"] .security-note,
+html[data-color-mode="light"] .pipeline-label,
+html[data-color-mode="light"] .form-field,
+html[data-color-mode="light"] .device-fields legend,
+html[data-color-mode="light"] .workflow-options legend,
+html[data-color-mode="light"] .workflow-option small,
+html[data-color-mode="light"] .drawer-heading p,
+html[data-color-mode="light"] .selected-printer .field-label,
+html[data-color-mode="light"] .selected-printer code,
+html[data-color-mode="light"] .printer-port { color: #536177; }
+
+html[data-color-mode="light"] .workflow-card,
+html[data-color-mode="light"] .summary-card,
+html[data-color-mode="light"] .inventory-section,
+html[data-color-mode="light"] .printer-card,
+html[data-color-mode="light"] .arn-stepper,
+html[data-color-mode="light"] .arn-card,
+html[data-color-mode="light"] .standard-page .card,
+html[data-color-mode="light"] .edit-drawer {
+    background: #ffffff;
+    border-color: #d7e1ed;
+    box-shadow: 0 2px 8px rgb(18 52 94 / 8%);
+}
+html[data-color-mode="light"] .workflow-card:hover,
+html[data-color-mode="light"] .printer-card:hover,
+html[data-color-mode="light"] .arn-card:hover { border-color: #93b1ef; box-shadow: 0 8px 22px rgb(18 52 94 / 12%); }
+html[data-color-mode="light"] .card-rule,
+html[data-color-mode="light"] .inventory-toolbar,
+html[data-color-mode="light"] .arn-card-title,
+html[data-color-mode="light"] .arn-current-box-actions,
+html[data-color-mode="light"] .drawer-actions { border-color: #e3ebf5; }
+
+html[data-color-mode="light"] .button-primary,
+html[data-color-mode="light"] .button.primary,
+html[data-color-mode="light"] .arn-button-primary,
+html[data-color-mode="light"] .standard-page .btn-primary,
+html[data-color-mode="light"] .download-page .btn-primary,
+html[data-color-mode="light"] [data-excel-theme] .btn-primary {
+    background: #0d52d6 !important;
+    border-color: #0d52d6 !important;
+    color: #ffffff !important;
+}
+html[data-color-mode="light"] .button-primary:hover:not(:disabled),
+html[data-color-mode="light"] .button.primary:hover:not(:disabled),
+html[data-color-mode="light"] .arn-button-primary:hover:not(:disabled),
+html[data-color-mode="light"] .standard-page .btn-primary:hover,
+html[data-color-mode="light"] .download-page .btn-primary:hover,
+html[data-color-mode="light"] [data-excel-theme] .btn-primary:hover { background: #003ca7 !important; border-color: #003ca7 !important; }
+html[data-color-mode="light"] .button-secondary,
+html[data-color-mode="light"] .button.secondary,
+html[data-color-mode="light"] .standard-button,
+html[data-color-mode="light"] .arn-button-secondary,
+html[data-color-mode="light"] .download-page .download-theme-toggle {
+    background: #ffffff;
+    border-color: #c4d4e6;
+    color: #0b1c30;
+}
+html[data-color-mode="light"] .button.secondary:hover:not(:disabled),
+html[data-color-mode="light"] .button-secondary:hover:not(:disabled),
+html[data-color-mode="light"] .arn-button-secondary:hover:not(:disabled) { background: #edf4ff; border-color: #93b1ef; }
+
+html[data-color-mode="light"] .summary-icon.blue,
+html[data-color-mode="light"] .drawer-icon,
+html[data-color-mode="light"] .edit-badge,
+html[data-color-mode="light"] .edit-button,
+html[data-color-mode="light"] .workflow-badge.arn,
+html[data-color-mode="light"] .filter-button.selected {
+    background: #e7efff;
+    color: #0d52d6;
+}
+html[data-color-mode="light"] .summary-icon.slate,
+html[data-color-mode="light"] .configured-badge,
+html[data-color-mode="light"] .workflow-badge.unassigned { background: #edf2f8; color: #536177; }
+html[data-color-mode="light"] .configured-dot { background: #607087; }
+html[data-color-mode="light"] .printer-details,
+html[data-color-mode="light"] .filter-pills,
+html[data-color-mode="light"] .drawer-header,
+html[data-color-mode="light"] .selected-printer,
+html[data-color-mode="light"] .workflow-option { background: #f8f9ff; border-color: #d7e1ed; color: #0b1c30; }
+html[data-color-mode="light"] .workflow-option:hover { background: #f3f7ff; border-color: #a9c1e8; }
+html[data-color-mode="light"] .workflow-option:has(input:checked) {
+    background: #edf4ff;
+    border-color: #7ea6e8;
+    box-shadow: inset 0 0 0 1px #c9dbfa;
+}
+html[data-color-mode="light"] .printer-detail-label,
+html[data-color-mode="light"] .summary-label,
+html[data-color-mode="light"] .summary-unit,
+html[data-color-mode="light"] .printer-subtitle,
+html[data-color-mode="light"] .config-note,
+html[data-color-mode="light"] .filter-button { color: #536177; }
+html[data-color-mode="light"] .printer-detail-value,
+html[data-color-mode="light"] .summary-card strong { color: #0b1c30; }
+html[data-color-mode="light"] .printer-detail-value.accent,
+html[data-color-mode="light"] .restore-defaults-button,
+html[data-color-mode="light"] .edit-button { color: #0d52d6; }
+
+html[data-color-mode="light"] .form-field input,
+html[data-color-mode="light"] .search-box,
+html[data-color-mode="light"] .arn-field input,
+html[data-color-mode="light"] .arn-scan-input,
+html[data-color-mode="light"] .standard-page .form-control,
+html[data-color-mode="light"] .field input,
+html[data-color-mode="light"] .field select {
+    background: #ffffff;
+    border-color: #bfcadd;
+    color: #0b1c30;
+}
+html[data-color-mode="light"] .form-field input:focus,
+html[data-color-mode="light"] .search-box:focus-within,
+html[data-color-mode="light"] .arn-field input:focus,
+html[data-color-mode="light"] .arn-scan-input:focus,
+html[data-color-mode="light"] .standard-page .form-control:focus,
+html[data-color-mode="light"] .field input:focus,
+html[data-color-mode="light"] .field select:focus { border-color: #0d52d6; box-shadow: 0 0 0 3px rgb(13 82 214 / 16%); }
+html[data-color-mode="light"] .arn-field label,
+html[data-color-mode="light"] .arn-meta-label,
+html[data-color-mode="light"] .field,
+html[data-color-mode="light"] .standard-page .form-label { color: #42536d; }
+html[data-color-mode="light"] .arn-metadata { background: #f5f8fd; border-color: #dce6f2; }
+html[data-color-mode="light"] .arn-meta-cell { background: #ffffff; border-color: #dce6f2; }
+html[data-color-mode="light"] .arn-table th { background: #f2f6fc; color: #42536d; }
+html[data-color-mode="light"] .arn-table td { border-bottom-color: #e3ebf5; }
+html[data-color-mode="light"] .arn-table tbody tr:hover { background: #f5f8fd; }
+html[data-color-mode="light"] .arn-button-danger { background: #ffffff; border-color: #efc7c3; color: #a62920; }
+html[data-color-mode="light"] .arn-progress-bar { background: #0d52d6; }
+
+html[data-color-mode="light"] .app-shell-header ~ main .page-heading,
+html[data-color-mode="light"] .page-heading { background: #ffffff; border-color: #d7e1ed; }
+html[data-color-mode="light"] .app-shell-header ~ main .results-toolbar,
+html[data-color-mode="light"] .app-shell-header ~ main .table-footer { background: #f5f8fd; border-color: #d7e1ed; }
+html[data-color-mode="light"] .app-shell-header ~ main .button.secondary,
+html[data-color-mode="light"] .app-shell-header ~ main .apply-button { background: #ffffff; border-color: #c4d4e6; color: #0b1c30; }
+html[data-color-mode="light"] .app-shell-header ~ main .apply-button { background: #e7efff; color: #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .text-button { color: #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .expand-button,
+html[data-color-mode="light"] .app-shell-header ~ main .pagination button {
+    background: #ffffff;
+    border-color: #bfcadd;
+    color: #0d52d6;
+}
+html[data-color-mode="light"] .app-shell-header ~ main .expand-button:hover:not(:disabled),
+html[data-color-mode="light"] .app-shell-header ~ main .pagination button:hover:not(:disabled) { background: #0d52d6; border-color: #0d52d6; color: #ffffff; }
+html[data-color-mode="light"] .app-shell-header ~ main .detail-panel { background: #ffffff; border-color: #c4d4e6; box-shadow: inset 4px 0 0 #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-match,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context { background: #eef5ff; border-color: #9bbce9; color: #244b88; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-match span,
+html[data-color-mode="light"] .app-shell-header ~ main .search-match code,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context code { color: #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-hit-text { background: #dbeafe; color: #003ca7; }
+html[data-color-mode="light"] .app-shell-header ~ main .scan-item.search-hit { background: #eef5ff; border-color: #0d52d6; box-shadow: 0 0 0 1px rgb(13 82 214 / 22%); }
+html[data-color-mode="light"] .app-shell-header ~ main .scan-hit-badge,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context > span { background: #0d52d6; color: #ffffff; }
+html[data-color-mode="light"] .app-shell-header ~ main .status-sealed { background: #e7f6ee; border-color: #9ad8ba; color: #17634a; }
+
+html[data-color-mode="light"] [data-excel-theme] .bg-surface,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-dim { background-color: #f8f9ff !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container-lowest { background-color: #ffffff !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container-low,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container-high,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-container-highest,
+html[data-color-mode="light"] [data-excel-theme] .bg-surface-variant { background-color: #f3f7fc !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-primary,
+html[data-color-mode="light"] [data-excel-theme] .bg-primary-container { background-color: #0d52d6 !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-primary-fixed,
+html[data-color-mode="light"] [data-excel-theme] .bg-primary-fixed\/20,
+html[data-color-mode="light"] [data-excel-theme] .bg-primary\/10 { background-color: #e7efff !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary,
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary-container,
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary-fixed,
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary-fixed\/30 { background-color: #e6f7fb !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-on-surface { color: #0b1c30 !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-on-surface-variant,
+html[data-color-mode="light"] [data-excel-theme] .text-secondary,
+html[data-color-mode="light"] [data-excel-theme] .text-outline { color: #536177 !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-primary,
+html[data-color-mode="light"] [data-excel-theme] .text-primary-container,
+html[data-color-mode="light"] [data-excel-theme] .text-tertiary { color: #0d52d6 !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-error,
+html[data-color-mode="light"] [data-excel-theme] .text-danger { color: #a62920 !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-success { color: #17634a !important; }
+html[data-color-mode="light"] [data-excel-theme] .border-primary,
+html[data-color-mode="light"] [data-excel-theme] .border-tertiary { border-color: #0d52d6 !important; }
+html[data-color-mode="light"] [data-excel-theme] .border-surface-container,
+html[data-color-mode="light"] [data-excel-theme] [class~="border-outline-variant/40"] { border-color: #d7e1ed !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="focus:border-primary"]:focus { border-color: #0d52d6 !important; }
+
+/* The shell header is inserted before #app-shell, which sits before <main>.
+   Use the general sibling combinator so these dashboard rules actually match. */
+html[data-color-mode="light"] .app-shell-header ~ main {
+    color: #0b1c30;
+}
+html[data-color-mode="light"] .app-shell-header ~ main .page-heading,
+html[data-color-mode="light"] .app-shell-header ~ main .stat-card,
+html[data-color-mode="light"] .app-shell-header ~ main .filter-card,
+html[data-color-mode="light"] .app-shell-header ~ main .results-card,
+html[data-color-mode="light"] .app-shell-header ~ main .detail-panel {
+    background: #ffffff;
+    border-color: #d7e1ed;
+    color: #0b1c30;
+}
+html[data-color-mode="light"] .app-shell-header ~ main .stat-card,
+html[data-color-mode="light"] .app-shell-header ~ main .filter-card,
+html[data-color-mode="light"] .app-shell-header ~ main .results-card { box-shadow: 0 3px 12px rgb(18 52 94 / 7%); }
+html[data-color-mode="light"] .app-shell-header ~ main h1,
+html[data-color-mode="light"] .app-shell-header ~ main h2,
+html[data-color-mode="light"] .app-shell-header ~ main .stat-value,
+html[data-color-mode="light"] .app-shell-header ~ main .reference-code,
+html[data-color-mode="light"] .app-shell-header ~ main .job-line .code,
+html[data-color-mode="light"] .app-shell-header ~ main .quantity,
+html[data-color-mode="light"] .app-shell-header ~ main .detail-header strong,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context strong { color: #0b1c30; }
+html[data-color-mode="light"] .app-shell-header ~ main .eyebrow,
+html[data-color-mode="light"] .app-shell-header ~ main .breadcrumb strong,
+html[data-color-mode="light"] .app-shell-header ~ main .text-button { color: #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .breadcrumb,
+html[data-color-mode="light"] .app-shell-header ~ main .subheading,
+html[data-color-mode="light"] .app-shell-header ~ main .updated,
+html[data-color-mode="light"] .app-shell-header ~ main .stat-label,
+html[data-color-mode="light"] .app-shell-header ~ main .stat-note,
+html[data-color-mode="light"] .app-shell-header ~ main .field,
+html[data-color-mode="light"] .app-shell-header ~ main thead,
+html[data-color-mode="light"] .app-shell-header ~ main .row-kicker,
+html[data-color-mode="light"] .app-shell-header ~ main .job-line > span,
+html[data-color-mode="light"] .app-shell-header ~ main .minor,
+html[data-color-mode="light"] .app-shell-header ~ main .carton-status,
+html[data-color-mode="light"] .app-shell-header ~ main .printed-at,
+html[data-color-mode="light"] .app-shell-header ~ main .detail-header span,
+html[data-color-mode="light"] .app-shell-header ~ main .scan-label,
+html[data-color-mode="light"] .app-shell-header ~ main .scan-time,
+html[data-color-mode="light"] .app-shell-header ~ main .filter-help,
+html[data-color-mode="light"] .app-shell-header ~ main .data-note,
+html[data-color-mode="light"] .app-shell-header ~ main .table-footer { color: #536177; }
+html[data-color-mode="light"] .app-shell-header ~ main .stat-note .good { color: #17634a; }
+html[data-color-mode="light"] .app-shell-header ~ main .stat-alert .stat-value { color: #b42318; }
+html[data-color-mode="light"] .app-shell-header ~ main .field input,
+html[data-color-mode="light"] .app-shell-header ~ main .field select,
+html[data-color-mode="light"] .app-shell-header ~ main .page-size select {
+    background: #ffffff;
+    border-color: #bfcadd;
+    color: #0b1c30;
+}
+html[data-color-mode="light"] .app-shell-header ~ main .field input::placeholder { color: #687991; opacity: 1; }
+html[data-color-mode="light"] .app-shell-header ~ main .field input:focus,
+html[data-color-mode="light"] .app-shell-header ~ main .field select:focus { border-color: #0d52d6; box-shadow: 0 0 0 3px rgb(13 82 214 / 16%); }
+html[data-color-mode="light"] .app-shell-header ~ main .filter-footer { border-color: #e3ebf5; }
+html[data-color-mode="light"] .app-shell-header ~ main .button.primary,
+html[data-color-mode="light"] .app-shell-header ~ main .scan-hit-badge,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context > span {
+    background: #0d52d6;
+    border-color: #0d52d6;
+    color: #ffffff;
+}
+html[data-color-mode="light"] .app-shell-header ~ main .button.primary:hover:not(:disabled) { background: #003ca7; border-color: #003ca7; }
+html[data-color-mode="light"] .app-shell-header ~ main .button.secondary,
+html[data-color-mode="light"] .app-shell-header ~ main .apply-button,
+html[data-color-mode="light"] .app-shell-header ~ main .expand-button,
+html[data-color-mode="light"] .app-shell-header ~ main .pagination button {
+    background: #ffffff;
+    border-color: #c4d4e6;
+    color: #0d52d6;
+}
+html[data-color-mode="light"] .app-shell-header ~ main .apply-button { background: #e7efff; }
+html[data-color-mode="light"] .app-shell-header ~ main .expand-button:hover:not(:disabled),
+html[data-color-mode="light"] .app-shell-header ~ main .pagination button:hover:not(:disabled) { background: #0d52d6; border-color: #0d52d6; color: #ffffff; }
+html[data-color-mode="light"] .app-shell-header ~ main .pagination button:disabled { background: #f3f6fb; border-color: #d7e1ed; color: #8190a5; }
+html[data-color-mode="light"] .app-shell-header ~ main .results-toolbar,
+html[data-color-mode="light"] .app-shell-header ~ main .table-footer { background: #f5f8fd; border-color: #d7e1ed; color: #536177; }
+html[data-color-mode="light"] .app-shell-header ~ main td { background: #ffffff; border-color: #e3ebf5; color: #0b1c30; }
+html[data-color-mode="light"] .app-shell-header ~ main tbody tr.carton-row:hover td,
+html[data-color-mode="light"] .app-shell-header ~ main tbody tr.carton-row.is-expanded td { background: #edf4ff; border-color: #9bbce9; }
+html[data-color-mode="light"] .app-shell-header ~ main .detail-row td { background: transparent; border-color: transparent; }
+html[data-color-mode="light"] .app-shell-header ~ main .detail-panel { box-shadow: inset 4px 0 0 #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .scan-item { background: #f8fafd; border-color: #d7e1ed; color: #0b1c30; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-match,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context { background: #eef5ff; border-color: #9bbce9; color: #244b88; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-match span,
+html[data-color-mode="light"] .app-shell-header ~ main .search-match code,
+html[data-color-mode="light"] .app-shell-header ~ main .search-detail-context code { color: #0d52d6; }
+html[data-color-mode="light"] .app-shell-header ~ main .search-hit-text { background: #dbeafe; color: #003ca7; }
+html[data-color-mode="light"] .app-shell-header ~ main .scan-item.search-hit { background: #eef5ff; border-color: #0d52d6; box-shadow: 0 0 0 1px rgb(13 82 214 / 22%); }
+html[data-color-mode="light"] .app-shell-header ~ main .status-sent,
+html[data-color-mode="light"] .app-shell-header ~ main .status-printed,
+html[data-color-mode="light"] .app-shell-header ~ main .status-in-carton,
+html[data-color-mode="light"] .app-shell-header ~ main .status-sealed { background: #e7f6ee; border-color: #9ad8ba; color: #17634a; }
+html[data-color-mode="light"] .app-shell-header ~ main .status-failed,
+html[data-color-mode="light"] .app-shell-header ~ main .status-removed { background: #fff1ef; border-color: #efc7c3; color: #a62920; }
+html[data-color-mode="light"] .app-shell-header ~ main .status-pending,
+html[data-color-mode="light"] .app-shell-header ~ main .status-open,
+html[data-color-mode="light"] .app-shell-header ~ main .status-printing { background: #fff6df; border-color: #ead28e; color: #704f00; }
+html[data-color-mode="light"] .app-shell-header ~ main .empty-state { color: #536177; }
+html[data-color-mode="light"] .app-shell-header ~ main .notice { background: #fff1ef; border-color: #efc7c3; border-left-color: #b42318; color: #8f1d16; box-shadow: 0 8px 24px rgb(18 52 94 / 16%); }
+html[data-color-mode="light"] .app-shell-header ~ main .notice.success { background: #e7f6ee; border-color: #9ad8ba; border-left-color: #17634a; color: #14523d; }
+html[data-color-mode="light"] .app-shell-header ~ main + .footer,
+html[data-color-mode="light"] .footer { background: #ffffff; border-color: #d7e1ed; color: #536177; }
+html[data-color-mode="light"] .footer span { color: #0d52d6; }
+html[data-color-mode="light"] .workflow-button.arn-button,
+html[data-color-mode="light"] .workflow-button.standard-button { background: #0d52d6; border: 1px solid #0d52d6; color: #ffffff; }
+html[data-color-mode="light"] .workflow-button.arn-button:hover,
+html[data-color-mode="light"] .workflow-button.standard-button:hover { background: #003ca7; border-color: #003ca7; color: #ffffff; }
+
+/* High contrast for special controls and feedback on all workflow pages. */
+html[data-color-mode="light"] .search-box input { background: transparent; color: #0b1c30; }
+html[data-color-mode="light"] .search-box input::placeholder,
+html[data-color-mode="light"] .form-field input::placeholder,
+html[data-color-mode="light"] .arn-field input::placeholder,
+html[data-color-mode="light"] .arn-scan-input::placeholder,
+html[data-color-mode="light"] .standard-page .form-control::placeholder { color: #687991; opacity: 1; }
+html[data-color-mode="light"] .restore-defaults-button { background: transparent; color: #0d52d6; }
+html[data-color-mode="light"] .assignment-warning,
+html[data-color-mode="light"] .safety-note,
+html[data-color-mode="light"] .edit-impact,
+html[data-color-mode="light"] .edit-impact.warning {
+    background: #eef5ff;
+    border-color: #b8cfe9;
+    color: #244b88;
+}
+html[data-color-mode="light"] .icon-button { color: #536177; }
+html[data-color-mode="light"] .icon-button:hover { background: #edf4ff; color: #0b1c30; }
+html[data-color-mode="light"] .drawer-error,
+html[data-color-mode="light"] .message.error,
+html[data-color-mode="light"] .arn-alert-error,
+html[data-color-mode="light"] .download-page .alert-danger { background: #fff1ef; border-color: #efc7c3; color: #8f1d16; }
+html[data-color-mode="light"] .message.success,
+html[data-color-mode="light"] .arn-alert-success,
+html[data-color-mode="light"] .download-page .alert-success { background: #e7f6ee; border-color: #9ad8ba; color: #14523d; }
+html[data-color-mode="light"] .download-card-toolbar,
+html[data-color-mode="light"] .download-page .form-label { color: #42536d; }
+html[data-color-mode="light"] .download-page .form-control:focus { background: #ffffff; border-color: #0d52d6; box-shadow: 0 0 0 3px rgb(13 82 214 / 16%); }
+html[data-color-mode="light"] .download-page .alert-warning,
+html[data-color-mode="light"] .arn-alert-info,
+html[data-color-mode="light"] .arn-directive,
+html[data-color-mode="light"] .arn-lock-card,
+html[data-color-mode="light"] .message:not(.error):not(.success) { background: #eef5ff; border-color: #b8cfe9; color: #244b88; }
+html[data-color-mode="light"] .standard-page .alert-light { background: #eef5ff; border-color: #b8cfe9; color: #244b88; }
+html[data-color-mode="light"] .standard-page .form-control[readonly] { background: #edf2f8; color: #42536d; }
+html[data-color-mode="light"] .auth-modal-error { color: #a62920; }
+html[data-color-mode="light"] .arn-scan-empty,
+html[data-color-mode="light"] .arn-table-empty,
+html[data-color-mode="light"] .arn-footer { color: #536177; }
+html[data-color-mode="light"] .arn-step.active .arn-step-number { animation-name: arn-active-step-pulse-light; }
+html[data-color-mode="light"] .arn-scan-item:hover { border-color: #93b1ef; background: #edf4ff; }
+html[data-color-mode="light"] .arn-status-print-failed { background: #fff1ef; border-color: #efc7c3; color: #a62920; }
+
+@keyframes arn-active-step-pulse-light {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(13 82 214 / 0); }
+    50% { box-shadow: 0 0 0 6px rgb(13 82 214 / 18%); }
+}
+
+/* Excel uploader and generated import-result pages use Tailwind utility names. */
+html[data-color-mode="light"] [data-excel-theme] .bg-surface\/90 { background-color: rgb(255 255 255 / .96) !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="bg-surface-container-low/60"] { background-color: rgb(243 247 252 / .8) !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="bg-primary/10"] { background-color: #e7efff !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="bg-secondary-container/40"] { background-color: #edf2f8 !important; }
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary,
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary-container,
+html[data-color-mode="light"] [data-excel-theme] .bg-tertiary-fixed,
+html[data-color-mode="light"] [data-excel-theme] [class~="bg-tertiary-fixed/30"] { background-color: #e7efff !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-on-secondary-container,
+html[data-color-mode="light"] [data-excel-theme] .text-on-tertiary,
+html[data-color-mode="light"] [data-excel-theme] .text-on-tertiary-fixed,
+html[data-color-mode="light"] [data-excel-theme] .text-tertiary { color: #244b88 !important; }
+html[data-color-mode="light"] [data-excel-theme] .text-on-primary { color: #ffffff !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="focus:bg-surface-container-lowest"]:focus { background-color: #ffffff !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-primary"]:hover { background-color: #003ca7 !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-surface-container-high"]:hover,
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-surface-container-high/80"]:hover,
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-surface-container-low"]:hover,
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-surface-container-low/50"]:hover,
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-surface-container-low/60"]:hover { background-color: #eaf1fb !important; }
+html[data-color-mode="light"] [data-excel-theme] [class~="hover:bg-surface-dim"]:hover { background-color: #eaf1fb !important; }
+html[data-color-mode="light"] [data-excel-theme].bg-light { background: #f8f9ff !important; color: #0b1c30 !important; }
+html[data-color-mode="light"] [data-excel-theme] .card,
+html[data-color-mode="light"] [data-excel-theme] .list-group-item { background: #ffffff !important; border-color: #d7e1ed !important; color: #0b1c30 !important; }
+html[data-color-mode="light"] [data-excel-theme] .btn-warning { background: #0d52d6 !important; border-color: #0d52d6 !important; color: #ffffff !important; }
+html[data-color-mode="light"] [data-excel-theme] .badge.bg-primary { background: #0d52d6 !important; color: #ffffff !important; }
+html[data-color-mode="light"] [data-excel-theme] .badge.bg-warning { background: #e7efff !important; color: #244b88 !important; }
+html[data-color-mode="light"] [data-excel-theme] .badge.bg-secondary { background: #edf2f8 !important; color: #42536d !important; }

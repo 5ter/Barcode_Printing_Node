@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#0d0912">
   <title>Label Traceability Dashboard | ACTMAX</title>
   <link rel="stylesheet" href="/css/app-shell.css">
   <link rel="stylesheet" href="/dashboard-assets/dashboard.css">
+  <link rel="stylesheet" href="/css/theme-modes.css">
   <script src="/app-shell.js" defer></script>
   <script src="/dashboard-assets/dashboard.js" defer></script>
 </head>
@@ -20,7 +21,7 @@
         <div>
           <p class="eyebrow">MANAGEMENT REPORTING</p>
           <h1>Carton Traceability &amp; Label Audit</h1>
-          <p class="subheading">Review ARN carton labels, their scanned product contents, and Standard product labels.</p>
+          <p class="subheading">Review ARN carton labels and the raw product-label contents saved in every carton.</p>
         </div>
         <div class="heading-actions">
           <span class="updated" id="last-updated">Not loaded yet</span>
@@ -39,14 +40,14 @@
           <div class="stat-note"><span id="stat-cartons-sent">—</span> sent successfully</div>
         </article>
         <article class="stat-card">
-          <div class="stat-label">STANDARD PRODUCT LABELS <span aria-hidden="true">▤</span></div>
-          <div class="stat-value" id="stat-standard">—</div>
-          <div class="stat-note">Generated product-label records</div>
+          <div class="stat-label">PENDING ARN PRINTS <span aria-hidden="true">▤</span></div>
+          <div class="stat-value" id="stat-pending">—</div>
+          <div class="stat-note">Saved ARN labels not yet confirmed as sent</div>
         </article>
         <article class="stat-card">
           <div class="stat-label">ARN PRODUCT SCAN EVENTS <span aria-hidden="true">⌗</span></div>
           <div class="stat-value" id="stat-scans">—</div>
-          <div class="stat-note">Includes removed scans, marked in the product view</div>
+          <div class="stat-note">Includes removed scans retained in the carton audit</div>
         </article>
         <article class="stat-card stat-alert">
           <div class="stat-label">FAILED ARN PRINTS <span aria-hidden="true">!</span></div>
@@ -79,25 +80,21 @@
             </label>
             <label class="field">
               <span>Part number</span>
-              <input id="part-filter" name="part" type="search" maxlength="255" placeholder="ARN, manufacturer, or customer part">
+              <input id="part-filter" name="part" type="search" maxlength="255" placeholder="ARN or manufacturer part">
             </label>
             <label class="field">
               <span>Printer</span>
               <select id="printer-filter" name="printer">
                 <option value="">All printers</option>
-                <option value="PRINTER_A">Printer A</option>
-                <option value="PRINTER_B">Printer B</option>
-                <option value="PRINTER_C">Printer C</option>
-                <option value="PRINTER_D">Printer D</option>
               </select>
             </label>
             <label class="field field-search">
-              <span>Label, serial, PO, or other text</span>
-              <input id="search-filter" name="search" type="search" maxlength="255" placeholder="Search label content, PO, printer, MO…">
+              <span>Carton or product-label text</span>
+              <input id="search-filter" name="search" type="search" maxlength="255" placeholder="Search Mfr Ref No., raw product label, PO, printer…">
             </label>
           </div>
           <div class="filter-footer">
-            <p class="filter-help">Dates apply to carton print time, Standard print time, or ARN product scan time.</p>
+            <p class="filter-help">Search includes raw product-label scans and returns their carton information. Carton labels are filtered by ARN print time.</p>
             <button class="button apply-button" type="submit">⌕ <span>Apply filters</span></button>
           </div>
         </form>
@@ -107,15 +104,7 @@
         <div class="results-toolbar">
           <div>
             <p class="eyebrow">AUDIT RESULTS</p>
-            <h2 id="results-title">Label records</h2>
-          </div>
-          <div class="view-tabs" role="tablist" aria-label="Label record type">
-            <button class="view-tab active" type="button" role="tab" aria-selected="true" data-view="cartons">
-              Carton labels <span id="tab-carton-count">—</span>
-            </button>
-            <button class="view-tab" type="button" role="tab" aria-selected="false" data-view="products">
-              Product records <span id="tab-product-count">—</span>
-            </button>
+            <h2 id="results-title">ARN carton label records</h2>
           </div>
         </div>
         <div class="table-scroll" id="table-scroll">
@@ -140,7 +129,7 @@
           </div>
         </div>
       </section>
-      <p class="data-note">Standard label records and ARN carton records are read from their existing history tables. ARN scanned-unit records show the raw scanned content; removed scans remain visible and are marked as removed.</p>
+      <p class="data-note">This dashboard currently shows ARN carton labels only. Click any carton row to view its raw product-label scans; removed scans remain visible and are marked as removed.</p>
       <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
     </section>
   </main>

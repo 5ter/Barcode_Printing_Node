@@ -6,6 +6,8 @@ const express = require('express');
 const router = express.Router();
 
 const htmlController = require ('../controllers/publish');
+const { requireRoles } = require('../utils/auth');
+const workflowAccess = requireRoles(['OPERATOR', 'ADMIN']);
 
 router.get('/', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -14,9 +16,9 @@ router.get('/', (req, res) => {
 
 // Keep the existing Standard label page and print endpoint, but expose it as
 // its own workflow so the Standard UI no longer needs an ARN tab.
-router.get('/standard', htmlController.sendHtml);
+router.get('/standard', workflowAccess, htmlController.sendHtml);
 
-router.get('/ajax.js',htmlController.sendAppaj);
+router.get('/ajax.js', workflowAccess, htmlController.sendAppaj);
 
 
 module.exports = router;

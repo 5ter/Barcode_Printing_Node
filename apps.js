@@ -16,9 +16,13 @@ const { requireRoles } = require('./utils/auth');
 // --- Middleware ---
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/image', express.static(path.join(__dirname, 'image')));
+app.get('/image/actmax_logo.png', (req, res) => {
+    res.sendFile(path.join(__dirname, 'actmax_logo.png'));
+});
 app.use(express.json());
 app.use(authRouter);
 const requireAdmin = requireRoles(['ADMIN']);
+const requireWorkflowOperator = requireRoles(['OPERATOR', 'ADMIN']);
 app.get('/app-shell.js', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'appShell.js'));
@@ -28,10 +32,10 @@ app.get('/app-shell.js', (req, res) => {
 const barcodeRoutes = require('./routes/barcode');
 app.use(barcodeRoutes);
 const arnTraceabilityRoutes = require('./routes/arnTraceability');
-app.use('/arn', requireRoles(['OPERATOR', 'SUPERVISOR', 'ADMIN']), arnTraceabilityRoutes);
+app.use('/arn', requireWorkflowOperator, arnTraceabilityRoutes);
 const printerSetupRoutes = require('./routes/printerSetup');
 app.use(printerSetupRoutes);
-// Read-only management history for Standard product labels and ARN cartons.
+// Read-only management history for ARN cartons and their saved product-label scans.
 const managementDashboardRoutes = require('./routes/managementDashboard');
 app.use(managementDashboardRoutes);
 
@@ -42,7 +46,7 @@ const { generateArnLabel } = require('./utils/arn_label');
 const arnLabelSettings = require('./config/arnLabelSetting');
 
 // --- Main Route: Handle Standard or ARN label submissions transactionally ---
-app.post('/submit-data', async (req, res) => {
+app.post('/submit-data', requireWorkflowOperator, async (req, res) => {
     let connection;
     let transactionOpen = false;
     try {
@@ -327,7 +331,7 @@ app.post('/submit-data', async (req, res) => {
 });
 
 // Re-send the exact saved ARN payload without touching its part sequence.
-app.post('/retry-arn-print', requireRoles(['OPERATOR', 'SUPERVISOR', 'ADMIN']), async (req, res) => {
+app.post('/retry-arn-print', requireWorkflowOperator, async (req, res) => {
     let connection;
     let transactionOpen = false;
     let retryHistoryId = '';
@@ -472,6 +476,12 @@ app.get('/fetch-data', requireAdmin, async (req, res) => {
 });
 
 // --- Start the server ---
-app.listen(PORT, () => {
-    logger.log(`Server is running on port ${PORT}`); // Replaced
-});
+// Keeping the Express application exportable lets the access rules be exercised
+// without starting a real print service during automated checks.
+if (require.main === module) {
+    app.listen(PORT, () => {
+        logger.log(`Server is running on port ${PORT}`); // Replaced
+    });
+}
+
+module.exports = app;

@@ -1,0 +1,42 @@
+:root {
+    color-scheme: dark;
+}
+
+.standard-page {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    background: var(--app-canvas);
+    color: var(--app-ink);
+    font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif;
+}
+
+.standard-main {
+    width: min(620px, calc(100% - 28px));
+    margin: 32px auto 48px;
+}
+
+.standard-page .container { max-width: none; padding: 0; }
+.standard-page .card { overflow: hidden; border: 1px solid var(--app-border); border-radius: 9px; background: var(--app-surface); box-shadow: 0 8px 26px rgb(0 0 0 / 28%); animation: standard-card-enter .32s ease-out both; }
+.standard-page .card-body { padding: clamp(22px, 5vw, 38px) !important; }
+.standard-page .standard-brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+.standard-page .standard-brand h1 { margin: 0; color: var(--app-ink); font-size: 27px; font-weight: 800; letter-spacing: -.035em; }
+.standard-page .standard-kicker { margin: 0 0 22px; color: var(--app-accent); font: 700 10px "JetBrains Mono", Consolas, monospace; letter-spacing: .09em; text-align: center; }
+.standard-page .alert-light { border-color: #4d3970; background: #251b31; color: #e9ddf7; font-size: 13px; }
+.standard-page .form-label { color: #d7c9e2; font: 700 11px "JetBrains Mono", Consolas, monospace; letter-spacing: .055em; text-transform: uppercase; }
+.standard-page .form-control { min-height: 48px; border-color: #51405e; border-radius: 6px; background: #121212; color: var(--app-ink); font: 600 15px "JetBrains Mono", Consolas, monospace; }
+.standard-page .form-control:focus { border-color: var(--app-accent); background: #121212; box-shadow: 0 0 0 3px #06b6d433; }
+.standard-page .form-control[readonly] { background: #26222a; color: #cbd5e1; }
+.standard-page .btn-primary { min-height: 54px; border-color: var(--app-blue); background: var(--app-blue); font: 700 16px "Hanken Grotesk", "Segoe UI", Arial, sans-serif; line-height: 1.25; }
+.standard-page .btn-primary:hover, .standard-page .btn-primary:focus { border-color: var(--app-blue-dark); background: var(--app-blue-dark); }
+.standard-page #response { margin-top: 26px !important; border-top-color: #3f3f46; color: var(--app-muted) !important; font-size: 13px; }
+
+@keyframes standard-card-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 560px) {
+    .standard-main { width: min(100% - 20px, 620px); margin-top: 18px; }
+    .standard-page .card-body { padding: 21px !important; }
+}

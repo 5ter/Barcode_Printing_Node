@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-store">
+    <meta name="theme-color" content="#0d0912">
     <title>ARN Unit Tracing | ACTMAX</title>
     <link rel="stylesheet" href="/css/app-shell.css">
     <link rel="stylesheet" href="/css/arn-workflow.css">
+    <link rel="stylesheet" href="/css/theme-modes.css">
     <script src="/app-shell.js" defer></script>
 </head>
 <body data-arn-page="scan">
@@ -40,24 +42,26 @@
         </section>
         <div class="arn-scan-grid">
             <section class="arn-card">
-                <div class="arn-card-title"><div><h2>Serial Tracing Station</h2><p class="arn-help" style="margin-top:5px">Scan the product label as printed. The raw scan is saved; the app does not parse its format.</p></div><span id="scannerBadge" class="arn-badge">Ready</span></div>
+                <div class="arn-card-title"><div><h2>Serial Tracing Station</h2><p class="arn-help" style="margin-top:5px">Each scanner read is recorded automatically. The raw scan is saved; the app does not parse its format. Remove an accidental scan before sealing.</p></div><span id="scannerBadge" class="arn-badge" aria-live="polite">Auto record</span></div>
                 <form id="scanForm" class="arn-scan-form" autocomplete="off">
-                    <div class="arn-field"><label for="barcodeInput">Scan Product Barcode</label><input id="barcodeInput" class="arn-scan-input" type="text" maxlength="2000" placeholder="Scan barcode, then press Enter" autofocus></div>
-                    <button id="scanButton" class="arn-button arn-button-primary arn-button-block" type="submit">Record Product Scan</button>
+                    <div class="arn-field"><label for="barcodeInput">Scan Product Barcode</label><input id="barcodeInput" class="arn-scan-input" type="text" maxlength="2000" placeholder="Scan a label — it records automatically" autofocus></div>
+                    <button id="scanButton" class="arn-button arn-button-primary arn-button-block" type="submit">Record now (optional)</button>
                 </form>
                 <div class="arn-actions">
-                    <button id="completeButton" class="arn-button arn-button-secondary" type="button">Complete &amp; Seal Carton</button>
                     <button id="retryButton" class="arn-button arn-button-secondary arn-hidden" type="button">Retry ARN Label</button>
                 </div>
                 <div class="arn-actions">
                     <button id="nextCartonButton" class="arn-button arn-button-primary arn-hidden" type="button">Proceed to Next Carton</button>
                     <button id="unlockButton" class="arn-button arn-button-danger arn-hidden" type="button">Finish MO / Change Part</button>
                 </div>
-                <p id="actionHelp" class="arn-notice">A full carton prints automatically. Partial cartons print only after you press Complete &amp; Seal.</p>
             </section>
             <section class="arn-card">
                 <div class="arn-card-title"><div><h2>Current Box Contents</h2><p id="scanListSubheading" class="arn-help" style="margin-top:5px">No scans recorded.</p></div><span id="scanCountBadge" class="arn-badge">0 units</span></div>
                 <div id="scannedSerialList" class="arn-scan-list" aria-live="polite"><div class="arn-scan-empty">Loading saved scans…</div></div>
+                <div class="arn-current-box-actions">
+                    <button id="completeButton" class="arn-button arn-button-secondary arn-button-block" type="button">Complete &amp; Seal Carton</button>
+                    <p id="actionHelp" class="arn-notice">Review the saved scans, then press Complete &amp; Seal to print the carton label.</p>
+                </div>
             </section>
         </div>
     </main>

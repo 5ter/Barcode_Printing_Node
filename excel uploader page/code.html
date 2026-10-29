@@ -169,12 +169,12 @@
 </div>
 <div>
 <h2 class="font-headline-md text-headline-md text-on-surface">Recent Excel Ingestion Audit Log</h2>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Previous bulk imports, manual label registrations, processing telemetry, and active DB row commits</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Committed Standard and ARN workbook imports, read directly from the database audit trail</p>
 </div>
 </div>
 <div class="flex items-center gap-space-xs">
-<span class="font-label-code-sm text-label-code-sm text-on-surface-variant bg-surface-container-low px-space-sm py-1 rounded">
-          Displaying last 5 sync sessions
+<span id="ingestionLogCount" class="font-label-code-sm text-label-code-sm text-on-surface-variant bg-surface-container-low px-space-sm py-1 rounded">
+          Loading recent imports…
         </span>
 </div>
 </div>
@@ -184,16 +184,15 @@
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-surface-container-low text-on-surface-variant font-label-code-sm text-label-code-sm uppercase tracking-wider">
-<th class="py-space-md px-space-md">Source File Manifest</th>
+<th class="py-space-md px-space-md">Source File</th>
 <th class="py-space-md px-space-md">Schema Type</th>
 <th class="py-space-md px-space-md">Rows Processed</th>
 <th class="py-space-md px-space-md">Ingestion Status</th>
-<th class="py-space-md px-space-md">Operator / Workstation</th>
+<th class="py-space-md px-space-md">Uploaded By</th>
 <th class="py-space-md px-space-md">Timestamp</th>
-<th class="py-space-md px-space-md text-right">Actions</th>
 </tr>
 </thead>
-<tbody class="font-body-md text-body-md divide-y divide-surface-container">
+<tbody id="ingestionLogRows" class="font-body-md text-body-md divide-y divide-surface-container" hidden>
 <!-- Row 1: Ready to Commit (Current staged session) -->
 <tr class="hover:bg-surface-container-low/60 transition-colors bg-primary-fixed/20">
 <td class="py-space-md px-space-md">

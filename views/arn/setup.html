@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-store">
+    <meta name="theme-color" content="#0d0912">
     <title>ARN Carton Setup | ACTMAX</title>
     <link rel="stylesheet" href="/css/app-shell.css">
     <link rel="stylesheet" href="/css/arn-workflow.css">
+    <link rel="stylesheet" href="/css/theme-modes.css">
     <script src="/app-shell.js" defer></script>
 </head>
 <body data-arn-page="setup">
@@ -66,7 +68,7 @@
                 <ol style="padding-left:22px;line-height:1.8;margin:0;color:#536177">
                     <li>Lock the MO and Manufacturer Part No. for this printer.</li>
                     <li>Scan each product barcode; its content is recorded against the active carton.</li>
-                    <li>At capacity, the ARN label prints automatically. For a final partial carton, use <em>Complete &amp; Seal</em>.</li>
+                    <li>At capacity, review the saved scans. Remove an accidental duplicate if needed, then use <em>Complete &amp; Seal</em> to print.</li>
                     <li>Press <em>Proceed to next carton</em> to keep the same MO/part and start another box.</li>
                 </ol>
                 <p class="arn-notice">A sealed carton is read-only so its saved contents stay consistent with its printed ARN label.</p>
@@ -85,7 +87,7 @@
                 <table class="arn-table">
                     <thead>
                         <tr>
-                            <th scope="col">Carton / Label</th>
+                            <th scope="col">Mfr Ref No.</th>
                             <th scope="col">MO &amp; Part</th>
                             <th scope="col">Units</th>
                             <th scope="col">Status</th>

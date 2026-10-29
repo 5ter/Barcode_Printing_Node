@@ -142,10 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const labelCell = document.createElement('td');
                 const cartonCode = document.createElement('span');
                 cartonCode.className = 'arn-table-code';
-                cartonCode.textContent = 'Carton #' + carton.id;
+                cartonCode.textContent = carton.labelReference || 'Pending';
                 const reference = document.createElement('span');
                 reference.className = 'arn-table-subtext';
-                reference.textContent = carton.labelReference || 'Label not printed yet';
+                reference.textContent = 'Internal carton #' + carton.id;
                 labelCell.append(cartonCode, reference);
                 row.appendChild(labelCell);
 
@@ -283,7 +283,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const retryButton = document.getElementById('retryButton');
         const nextButton = document.getElementById('nextCartonButton');
         const unlockButton = document.getElementById('unlockButton');
+        const scannerBadge = document.getElementById('scannerBadge');
+        const autoRecordDelayMs = 250;
         let state = null;
+        let scanInFlight = false;
+        let autoRecordTimer = null;
+
+        function clearAutoRecordTimer() {
+            if (autoRecordTimer !== null) window.clearTimeout(autoRecordTimer);
+            autoRecordTimer = null;
+        }
+
+        function setScannerStatus(text) {
+            if (scannerBadge) scannerBadge.textContent = text;
+        }
 
         async function refreshState() {
             const result = await api('/arn/api/state');
@@ -293,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderState() {
             if (!state || !state.active || !state.carton) {
+                clearAutoRecordTimer();
                 displayAlert(alert, 'No ARN job is locked to Printer ' + printer + '. Set up the MO and part first.', 'info');
                 document.getElementById('cartonDisplay').textContent = 'No active carton';
                 scanInput.disabled = true;
@@ -300,6 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 completeButton.disabled = true;
                 nextButton.classList.add('arn-hidden');
                 unlockButton.classList.add('arn-hidden');
+                setScannerStatus('Unavailable');
                 return;
             }
 
@@ -308,7 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const count = Number(carton.scanned_count) || 0;
             const capacity = Number(carton.box_capacity) || 0;
             const percent = capacity ? Math.min(100, Math.round(count * 100 / capacity)) : 0;
-            document.getElementById('cartonDisplay').textContent = 'Carton #' + carton.id;
+            const cartonReference = state.printHistory && state.printHistory.label_content;
+            document.getElementById('cartonDisplay').textContent = cartonReference
+                ? 'Mfr Ref No. ' + cartonReference + ' · Carton #' + carton.id
+                : 'Carton in progress #' + carton.id;
             document.getElementById('lockedMo').textContent = carton.mo;
             document.getElementById('lockedMpn').textContent = carton.manufacturer_part_no;
             document.getElementById('lockedArnPart').textContent = carton.arn_part_no;
@@ -323,17 +341,22 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('scanCountBadge').textContent = count + ' units';
             document.getElementById('scanListSubheading').textContent = count + ' active scans · carton capacity ' + capacity;
 
-            const scanIsOpen = carton.status === 'OPEN' && count < capacity;
-            scanInput.disabled = !scanIsOpen;
-            scanButton.disabled = !scanIsOpen;
-            completeButton.disabled = !scanIsOpen || count === 0;
-            completeButton.classList.toggle('arn-hidden', !scanIsOpen);
+            const cartonIsOpen = carton.status === 'OPEN';
+            const canScan = cartonIsOpen && count < capacity;
+            if (!canScan) clearAutoRecordTimer();
+            scanInput.disabled = !canScan || scanInFlight;
+            scanButton.disabled = !canScan || scanInFlight;
+            setScannerStatus(canScan ? (scanInFlight ? 'Recording…' : 'Auto record') : 'Review carton');
+            completeButton.disabled = !cartonIsOpen || count === 0;
+            completeButton.classList.toggle('arn-hidden', !cartonIsOpen);
             nextButton.classList.toggle('arn-hidden', carton.status !== 'SEALED');
             const canUnlock = carton.status === 'SEALED' || (carton.status === 'OPEN' && count === 0);
             unlockButton.classList.toggle('arn-hidden', !canUnlock);
             retryButton.classList.toggle('arn-hidden', !['PRINT_FAILED', 'PRINTING'].includes(carton.status));
             const printPending = carton.status === 'PRINTING' || carton.status === 'PRINT_FAILED';
-            if (carton.status === 'OPEN') {
+            if (carton.status === 'OPEN' && count >= capacity) {
+                displayAlert(alert, 'Carton capacity reached. Review the final scan, remove an accidental duplicate if needed, then Complete & Seal to print.', 'info');
+            } else if (carton.status === 'OPEN') {
                 displayAlert(alert, 'Ready to scan. Every scan is saved to this carton; repeated scans appear as separate entries and can be removed before sealing.', 'info');
             } else if (carton.status === 'PRINT_FAILED') {
                 displayAlert(alert, 'The carton is full or sealed for completion, but the ARN label failed to send. Retry the saved reference before proceeding.', 'error');
@@ -345,10 +368,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayAlert(alert, 'Carton sealed. ARN reference ' + (reference || 'saved') + ' · printed QTY ' + (qty || count) + '. Proceed to another carton or finish this MO.', 'success');
             }
             document.getElementById('actionHelp').textContent = carton.status === 'OPEN'
-                ? 'A full carton prints automatically. For a final partial carton, press Complete & Seal; the label QTY will be the actual scanned count.'
+                ? (count >= capacity
+                    ? 'Capacity reached. You can still remove an accidental scan. When the contents are correct, press Complete & Seal to print.'
+                    : 'Review the saved scans, then press Complete & Seal when this carton is ready. The label QTY will be the actual scanned count.')
                 : 'The carton is locked against additional scans until you proceed or finish the MO.';
-            renderScans(state.scans || [], scanIsOpen);
-            if (scanIsOpen) scanInput.focus();
+            renderScans(state.scans || [], cartonIsOpen);
+            if (canScan) scanInput.focus();
             if (printPending && !state.printHistory) retryButton.disabled = true;
             else retryButton.disabled = false;
         }
@@ -400,18 +425,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        scanForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
+        async function recordCurrentScan() {
+            clearAutoRecordTimer();
             const content = scanInput.value;
-            if (!content.trim() || scanButton.disabled) return;
+            if (!content.trim() || scanInput.disabled || scanInFlight) return;
+            scanInFlight = true;
             scanButton.disabled = true;
+            scanInput.disabled = true;
+            setScannerStatus('Recording…');
             try {
                 const result = await api('/arn/api/scan', 'POST', { content });
                 scanInput.value = '';
                 state = result.state;
                 renderState();
-                if (result.labelPrinted) {
-                    displayAlert(alert, 'Carton capacity reached. ARN label ' + result.labelReference + ' was sent automatically.', 'success');
+                if (result.cartonReadyToSeal) {
+                    displayAlert(alert, 'Carton capacity reached. Review the last scan if needed, then press Complete & Seal to print.', 'info');
                 }
             } catch (error) {
                 if (error.payload && error.payload.state) {
@@ -421,12 +449,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 displayAlert(alert, error.message, 'error');
             } finally {
-                if (state && state.carton && state.carton.status === 'OPEN') {
+                scanInFlight = false;
+                if (state && state.carton && state.carton.status === 'OPEN' && Number(state.carton.scanned_count) < Number(state.carton.box_capacity)) {
                     scanButton.disabled = false;
+                    scanInput.disabled = false;
+                    setScannerStatus('Auto record');
                     scanInput.focus();
                 }
             }
+        }
+
+        function scheduleAutoRecord() {
+            clearAutoRecordTimer();
+            if (!scanInput.value.trim() || scanInput.disabled || scanInFlight) return;
+            autoRecordTimer = window.setTimeout(() => {
+                autoRecordTimer = null;
+                recordCurrentScan();
+            }, autoRecordDelayMs);
+        }
+
+        scanForm.addEventListener('submit', event => {
+            event.preventDefault();
+            recordCurrentScan();
         });
+        scanInput.addEventListener('keydown', event => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            recordCurrentScan();
+        });
+        scanInput.addEventListener('input', scheduleAutoRecord);
 
         completeButton.addEventListener('click', async () => {
             const count = state && state.carton ? Number(state.carton.scanned_count) : 0;

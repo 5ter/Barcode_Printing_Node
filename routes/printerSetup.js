@@ -188,8 +188,16 @@ router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), as
     const parsed = readPrinterDetails(req.body || {});
     if (parsed.error) return res.status(400).json({ status: 'error', message: parsed.error });
     const { name, model, location, ipAddress, macAddress, port } = parsed.values;
+    const workflowKey = String(req.body && req.body.workflowKey || '').trim().toUpperCase();
+    if (![WORKFLOWS.STANDARD.key, WORKFLOWS.ARN.key, 'UNASSIGNED'].includes(workflowKey)) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Choose Standard, ARN, or Unassigned for this printer workflow.'
+        });
+    }
 
     let connection;
+    let transactionOpen = false;
     try {
         connection = await db.getConnection();
         const printers = await loadConfiguredPrinters(connection);
@@ -212,6 +220,43 @@ router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), as
             });
         }
 
+        await connection.beginTransaction();
+        transactionOpen = true;
+
+        const [currentRows] = await connection.execute(
+            'SELECT workflow_key, printer_id FROM workflow_printer_assignments FOR UPDATE'
+        );
+        const currentAssignments = {};
+        for (const row of currentRows) {
+            currentAssignments[String(row.workflow_key).toUpperCase()] = normalizePrinterId(row.printer_id);
+        }
+        const nextAssignments = { ...currentAssignments };
+        for (const workflow of Object.values(WORKFLOWS)) {
+            if (nextAssignments[workflow.key] === printerId) {
+                nextAssignments[workflow.key] = null;
+            }
+        }
+        if (workflowKey !== 'UNASSIGNED') {
+            nextAssignments[workflowKey] = printerId;
+        }
+
+        if (currentAssignments[WORKFLOWS.ARN.key] !== nextAssignments[WORKFLOWS.ARN.key]) {
+            const [activeRows] = await connection.execute(
+                'SELECT ' +
+                    '(SELECT COUNT(*) FROM arn_station_lock WHERE mo IS NOT NULL) + ' +
+                    '(SELECT COUNT(*) FROM arn_cartons WHERE status IN (?, ?, ?)) AS active_count',
+                ['OPEN', 'PRINTING', 'PRINT_FAILED']
+            );
+            if (Number(activeRows[0] && activeRows[0].active_count || 0) > 0) {
+                await connection.rollback();
+                transactionOpen = false;
+                return res.status(409).json({
+                    status: 'error',
+                    message: 'The ARN printer cannot be reassigned while an ARN MO/station lock or an unfinished carton exists. Finish and unlock the MO first so its saved station state is not stranded.'
+                });
+            }
+        }
+
         await connection.execute(
             'INSERT INTO printer_devices (printer_id, printer_name, location, printer_model, ip_address, mac_address, tcp_port) ' +
             'VALUES (?, ?, ?, ?, ?, ?, ?) ' +
@@ -221,9 +266,31 @@ router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), as
             [printerId, name, location || null, model || null, ipAddress, macAddress, port]
         );
 
+        const arnPrinterId = nextAssignments[WORKFLOWS.ARN.key];
+        if (arnPrinterId) {
+            await connection.execute(
+                'INSERT INTO arn_station_lock (printer_id) ' +
+                'SELECT ? WHERE NOT EXISTS (' +
+                'SELECT 1 FROM arn_station_lock WHERE printer_id = ?' +
+                ')',
+                [arnPrinterId, arnPrinterId]
+            );
+        }
+        await connection.execute('DELETE FROM workflow_printer_assignments');
+        await connection.execute(
+            'INSERT INTO workflow_printer_assignments (workflow_key, printer_id) VALUES (?, ?)',
+            [WORKFLOWS.STANDARD.key, nextAssignments[WORKFLOWS.STANDARD.key] || null]
+        );
+        await connection.execute(
+            'INSERT INTO workflow_printer_assignments (workflow_key, printer_id) VALUES (?, ?)',
+            [WORKFLOWS.ARN.key, nextAssignments[WORKFLOWS.ARN.key] || null]
+        );
+        await connection.commit();
+        transactionOpen = false;
+
         return res.json({
             status: 'success',
-            message: 'Printer details saved. Its workflow assignment was not changed.',
+            message: 'Printer details and workflow assignment saved together.',
             printer: {
                 id: printerId,
                 letter: printerId.replace(/^PRINTER_/, ''),
@@ -233,16 +300,20 @@ router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), as
                 ipAddress,
                 macAddress: macAddress || '',
                 port
-            }
+            },
+            assignments: toPublicAssignments(nextAssignments, printers.map(printer =>
+                printer.id === printerId ? { ...printer, name, model, location, ipAddress, macAddress, port } : printer
+            ))
         });
     } catch (error) {
-        logger.error('Could not update printer details:', error);
+        if (connection && transactionOpen) await connection.rollback();
+        logger.error('Could not save printer configuration:', error);
         if (error.code === 'ER_DUP_ENTRY' || error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
             return res.status(409).json({ status: 'error', message: 'Another printer already uses this network endpoint.' });
         }
         return res.status(500).json({
             status: 'error',
-            message: 'Could not update printer details. Confirm the printer_devices location migration has been applied.'
+            message: 'Could not save the printer configuration. Confirm the printer-device and workflow-assignment migrations have been applied.'
         });
     } finally {
         if (connection) connection.release();

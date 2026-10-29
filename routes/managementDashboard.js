@@ -2,12 +2,18 @@ const express = require('express');
 const path = require('path');
 const ExcelJS = require('exceljs');
 const db = require('../db/root');
+const { getConfiguredPrinters, loadConfiguredPrinters, normalizePrinterId } = require('../utils/workflowPrinterAssignments');
+const { requireRoles } = require('../utils/auth');
 
 const router = express.Router();
 const ASSET_DIRECTORY = path.join(__dirname, '..', 'views', 'management-dashboard-assets');
 const MAX_PAGE_SIZE = 100;
 const EXPORT_BATCH_SIZE = 1000;
+const dashboardAccess = requireRoles(['SUPERVISOR', 'ADMIN']);
 
+// The dashboard is read-only, but still contains operational traceability
+// data and must not be available merely because its navigation link is hidden.
+router.use(dashboardAccess);
 router.use('/dashboard-assets', express.static(ASSET_DIRECTORY));
 
 router.get('/dashboard', (req, res) => {
@@ -35,11 +41,6 @@ function readFilters(query) {
         return { error: 'Choose a valid printer.' };
     }
 
-    const view = String(query.view || 'cartons').trim().toLowerCase();
-    if (view !== 'cartons' && view !== 'products') {
-        return { error: 'Choose either the carton or product view.' };
-    }
-
     const pageValue = Number.parseInt(query.page, 10);
     const pageSizeValue = Number.parseInt(query.pageSize, 10);
     const pageSize = [25, 50, 100].includes(pageSizeValue) ? pageSizeValue : 25;
@@ -53,7 +54,6 @@ function readFilters(query) {
             part: String(query.part || '').trim().slice(0, 255),
             search: String(query.search || '').trim().slice(0, 255),
             printer,
-            view,
             page,
             pageSize
         }
@@ -97,28 +97,26 @@ function makeCartonFilter(filters) {
     addExactContainsFilter(where, parameters, 'h.mo', filters.mo);
     addAnyContainsFilter(where, parameters, ['h.arn_part_no', 'h.manufacturer_part_no'], filters.part);
     addExactContainsFilter(where, parameters, 'h.printer_id', filters.printer);
-    addAnyContainsFilter(where, parameters, [
+    const searchColumns = [
         'h.label_content', 'h.mo', 'h.arn_part_no', 'h.manufacturer_part_no',
         'h.purchase_order', 'h.printer_id', 'h.print_status'
-    ], filters.search);
-    return { sql: where.length ? ' WHERE ' + where.join(' AND ') : '', parameters };
+    ];
+    if (filters.search) {
+        where.push('(' + searchColumns.map(column => column + ' LIKE ?').join(' OR ') +
+            ' OR EXISTS (SELECT 1 FROM arn_carton_scans dashboard_scan ' +
+            'WHERE dashboard_scan.carton_id = COALESCE(c.id, h.carton_id) ' +
+            'AND dashboard_scan.scanned_content LIKE ?))');
+        for (const unusedColumn of searchColumns) parameters.push('%' + filters.search + '%');
+        parameters.push('%' + filters.search + '%');
+    }
+    return {
+        sql: where.length ? ' WHERE ' + where.join(' AND ') : '',
+        parameters,
+        productLabelSearch: filters.search || ''
+    };
 }
 
-function makeStandardProductFilter(filters) {
-    const where = [];
-    const parameters = [];
-    addDateFilter(where, parameters, 'p.date', filters);
-    addExactContainsFilter(where, parameters, 'p.mo', filters.mo);
-    addAnyContainsFilter(where, parameters, ['p.Act_part_no', 'p.Cust_part_no'], filters.part);
-    addExactContainsFilter(where, parameters, 'p.printer_ID', filters.printer);
-    addAnyContainsFilter(where, parameters, [
-        'p.Label_content', 'p.mo', 'p.Act_part_no', 'p.Cust_part_no',
-        'p.product_code_group', 'CAST(p.Unique_serial AS CHAR)', 'p.printer_ID'
-    ], filters.search);
-    return { sql: where.length ? ' WHERE ' + where.join(' AND ') : '', parameters };
-}
-
-function makeArnProductFilter(filters) {
+function makeArnScanFilter(filters) {
     const where = [];
     const parameters = [];
     addDateFilter(where, parameters, 's.scanned_at', filters);
@@ -133,6 +131,12 @@ function makeArnProductFilter(filters) {
 }
 
 function cartonSelect(filter, withPagination) {
+    const matchingProductLabel = filter.productLabelSearch
+        ? `(SELECT matching_scan.scanned_content FROM arn_carton_scans matching_scan
+             WHERE matching_scan.carton_id = COALESCE(c.id, h.carton_id)
+               AND matching_scan.scanned_content LIKE ?
+             ORDER BY matching_scan.id ASC LIMIT 1) AS matchingProductLabel,`
+        : 'NULL AS matchingProductLabel,';
     return {
         sql: `SELECT
                 h.id AS printHistoryId,
@@ -153,87 +157,80 @@ function cartonSelect(filter, withPagination) {
                 h.last_error AS lastError,
                 h.printer_id AS printerId,
                 h.printed_at AS printedAt,
+                ${matchingProductLabel}
                 (SELECT COUNT(*) FROM arn_carton_scans active_scan
                  WHERE active_scan.carton_id = c.id AND active_scan.removed_at IS NULL) AS activeScanCount
             FROM arn_label_print_history h
             LEFT JOIN arn_cartons c ON c.id = h.carton_id OR c.label_history_id = h.id${filter.sql}
             ORDER BY h.printed_at DESC, h.id DESC${withPagination ? ' LIMIT ? OFFSET ?' : ''}`,
-        parameters: filter.parameters
+        parameters: filter.productLabelSearch
+            ? ['%' + filter.productLabelSearch + '%', ...filter.parameters]
+            : filter.parameters
     };
 }
 
-function standardProductSelect(filter) {
-    return `SELECT
-                'STANDARD LABEL' AS recordType,
-                p.id AS recordId,
-                p.date AS eventAt,
-                p.mo AS mo,
-                p.Act_part_no AS partNo,
-                p.Cust_part_no AS customerPartNo,
-                NULL AS manufacturerPartNo,
-                NULL AS purchaseOrder,
-                p.Label_content AS labelContent,
-                CAST(p.Unique_serial AS CHAR) AS serialNo,
-                NULL AS cartonId,
-                NULL AS cartonLabelReference,
-                p.printer_ID AS printerId,
-                'PRINTED' AS recordStatus
-            FROM products_unique p${filter.sql}`;
-}
+router.get('/api/management-dashboard/printers', async (req, res) => {
+    let connection;
+    try {
+        connection = await db.getConnection();
+        let configuredPrinters = getConfiguredPrinters();
+        try {
+            configuredPrinters = await loadConfiguredPrinters(connection);
+        } catch (error) {
+            console.warn('Management dashboard could not read printer_devices; using configured and historical printer IDs.', error.message);
+        }
+        const printersById = new Map(configuredPrinters.map(printer => [printer.id, {
+            id: printer.id,
+            name: printer.name,
+            location: printer.location || ''
+        }]));
+        const [historyRows] = await connection.execute(
+            'SELECT DISTINCT printer_id FROM arn_label_print_history ' +
+            'WHERE printer_id IS NOT NULL AND TRIM(printer_id) <> ? ORDER BY printer_id',
+            ['']
+        );
+        for (const row of historyRows) {
+            const id = normalizePrinterId(row.printer_id);
+            if (id && !printersById.has(id)) {
+                printersById.set(id, { id, name: id, location: '' });
+            }
+        }
+        return res.json({ status: 'success', printers: [...printersById.values()] });
+    } catch (error) {
+        console.error('Management dashboard printer list failed:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Could not load the configured printer list.'
+        });
+    } finally {
+        if (connection) connection.release();
+    }
+});
 
-function arnProductSelect(filter) {
-    return `SELECT
-                'ARN UNIT SCAN' AS recordType,
-                s.id AS recordId,
-                s.scanned_at AS eventAt,
-                c.mo AS mo,
-                c.arn_part_no AS partNo,
-                NULL AS customerPartNo,
-                c.manufacturer_part_no AS manufacturerPartNo,
-                c.purchase_order AS purchaseOrder,
-                s.scanned_content AS labelContent,
-                NULL AS serialNo,
-                c.id AS cartonId,
-                h.label_content AS cartonLabelReference,
-                c.printer_id AS printerId,
-                CASE WHEN s.removed_at IS NULL THEN 'IN CARTON' ELSE 'REMOVED' END AS recordStatus
-            FROM arn_carton_scans s
-            INNER JOIN arn_cartons c ON c.id = s.carton_id
-            LEFT JOIN arn_label_print_history h ON h.id = c.label_history_id${filter.sql}`;
-}
-
-function productUnion(standardFilter, arnFilter) {
-    return standardProductSelect(standardFilter) + '\nUNION ALL\n' + arnProductSelect(arnFilter);
-}
-
-async function readCounts(connection, cartonFilter, standardFilter, arnFilter) {
+async function readCounts(connection, cartonFilter, arnScanFilter) {
     const [cartonRows] = await connection.execute(
         `SELECT COUNT(*) AS total,
                 SUM(CASE WHEN h.print_status = 'SENT' THEN 1 ELSE 0 END) AS sent,
-                SUM(CASE WHEN h.print_status = 'FAILED' THEN 1 ELSE 0 END) AS failed
-         FROM arn_label_print_history h${cartonFilter.sql}`,
+                SUM(CASE WHEN h.print_status = 'FAILED' THEN 1 ELSE 0 END) AS failed,
+                SUM(CASE WHEN h.print_status NOT IN ('SENT', 'FAILED') OR h.print_status IS NULL THEN 1 ELSE 0 END) AS pending
+         FROM arn_label_print_history h
+         LEFT JOIN arn_cartons c ON c.id = h.carton_id OR c.label_history_id = h.id${cartonFilter.sql}`,
         cartonFilter.parameters
-    );
-    const [standardRows] = await connection.execute(
-        'SELECT COUNT(*) AS total FROM products_unique p' + standardFilter.sql,
-        standardFilter.parameters
     );
     const [arnScanRows] = await connection.execute(
         'SELECT COUNT(*) AS total FROM arn_carton_scans s INNER JOIN arn_cartons c ON c.id = s.carton_id ' +
-            'LEFT JOIN arn_label_print_history h ON h.id = c.label_history_id' + arnFilter.sql,
-        arnFilter.parameters
+            'LEFT JOIN arn_label_print_history h ON h.id = c.label_history_id' + arnScanFilter.sql,
+        arnScanFilter.parameters
     );
 
     const carton = cartonRows[0] || {};
-    const standardLabels = Number(standardRows[0] && standardRows[0].total || 0);
     const arnUnitScans = Number(arnScanRows[0] && arnScanRows[0].total || 0);
     return {
         cartonLabels: Number(carton.total || 0),
         cartonLabelsSent: Number(carton.sent || 0),
         cartonPrintFailures: Number(carton.failed || 0),
-        standardLabels,
-        arnUnitScans,
-        productRecords: standardLabels + arnUnitScans
+        cartonPrintPending: Number(carton.pending || 0),
+        arnUnitScans
     };
 }
 
@@ -243,36 +240,19 @@ router.get('/api/management-dashboard', async (req, res) => {
 
     const filters = parsed.filters;
     const cartonFilter = makeCartonFilter(filters);
-    const standardFilter = makeStandardProductFilter(filters);
-    const arnFilter = makeArnProductFilter(filters);
+    const arnScanFilter = makeArnScanFilter(filters);
     let connection;
 
     try {
         connection = await db.getConnection();
-        const summary = await readCounts(connection, cartonFilter, standardFilter, arnFilter);
+        const summary = await readCounts(connection, cartonFilter, arnScanFilter);
         const offset = (filters.page - 1) * filters.pageSize;
-        let rows;
-        let total;
-
-        if (filters.view === 'cartons') {
-            total = summary.cartonLabels;
-            const query = cartonSelect(cartonFilter, true);
-            const [resultRows] = await connection.execute(
-                query.sql,
-                [...query.parameters, ...paginationParameters(filters.pageSize, offset)]
-            );
-            rows = resultRows;
-        } else {
-            total = summary.productRecords;
-            const [resultRows] = await connection.execute(
-                `SELECT * FROM (${productUnion(standardFilter, arnFilter)}) AS product_records
-                 ORDER BY eventAt DESC, recordId DESC
-                 LIMIT ? OFFSET ?`,
-                [...standardFilter.parameters, ...arnFilter.parameters,
-                    ...paginationParameters(filters.pageSize, offset)]
-            );
-            rows = resultRows;
-        }
+        const total = summary.cartonLabels;
+        const query = cartonSelect(cartonFilter, true);
+        const [rows] = await connection.execute(
+            query.sql,
+            [...query.parameters, ...paginationParameters(filters.pageSize, offset)]
+        );
 
         return res.json({
             status: 'success',
@@ -397,15 +377,13 @@ router.get('/api/management-dashboard/export', async (req, res) => {
     }
     const dateTag = filters.startDate + '_to_' + filters.endDate;
     const cartonFilter = makeCartonFilter(filters);
-    const standardFilter = makeStandardProductFilter(filters);
-    const arnFilter = makeArnProductFilter(filters);
     let connection;
 
     try {
         connection = await db.getConnection();
-        const viewName = filters.view === 'cartons' ? 'cartons' : 'products';
+        const viewName = 'arn-cartons';
         res.status(200);
-        const excelColumns = filters.view === 'cartons' ? [
+        const excelColumns = [
             ['Print History ID', 'printHistoryId'], ['Carton ID', 'cartonId'],
             ['ARN Label Reference', 'labelReference'], ['MO', 'mo'], ['ARN Part No.', 'arnPartNo'],
             ['Manufacturer Part No.', 'manufacturerPartNo'], ['Purchase Order', 'purchaseOrder'],
@@ -414,13 +392,6 @@ router.get('/api/management-dashboard/export', async (req, res) => {
             ['Print Status', 'printStatus'], ['Printer', 'printerId'], ['Printed At', 'printedAt'],
             ['Date Code', 'dateCode'], ['Item No.', 'itemNo'], ['Retry Count', 'retryCount'],
             ['Last Error', 'lastError']
-        ] : [
-            ['Record Type', 'recordType'], ['Record ID', 'recordId'], ['Date & Time', 'eventAt'],
-            ['MO', 'mo'], ['Part No.', 'partNo'], ['Customer Part No.', 'customerPartNo'],
-            ['Manufacturer Part No.', 'manufacturerPartNo'], ['Purchase Order', 'purchaseOrder'],
-            ['Label / Scanned Content', 'labelContent'], ['Serial No.', 'serialNo'],
-            ['Carton ID', 'cartonId'], ['Carton Label Reference', 'cartonLabelReference'],
-            ['Printer', 'printerId'], ['Record Status', 'recordStatus']
         ];
 
         if (format === 'xlsx') {
@@ -431,7 +402,7 @@ router.get('/api/management-dashboard/export', async (req, res) => {
                 useStyles: true,
                 useSharedStrings: true
             });
-            const worksheet = workbook.addWorksheet(filters.view === 'cartons' ? 'Carton labels' : 'Product records');
+            const worksheet = workbook.addWorksheet('ARN carton labels');
             worksheet.columns = excelColumns.map(([header]) => ({
                 header,
                 width: Math.min(34, Math.max(12, header.length + 3))
@@ -444,20 +415,11 @@ router.get('/api/management-dashboard/export', async (req, res) => {
                 to: { row: 1, column: excelColumns.length }
             };
 
-            if (filters.view === 'cartons') {
-                const query = cartonSelect(cartonFilter);
-                await streamQueryAsExcel(
-                    connection, query.sql, query.parameters,
-                    excelColumns.map(([, key]) => key), worksheet, res
-                );
-            } else {
-                const query = `SELECT * FROM (${productUnion(standardFilter, arnFilter)}) AS product_records
-                               ORDER BY eventAt DESC, recordId DESC`;
-                await streamQueryAsExcel(
-                    connection, query, [...standardFilter.parameters, ...arnFilter.parameters],
-                    excelColumns.map(([, key]) => key), worksheet, res
-                );
-            }
+            const query = cartonSelect(cartonFilter);
+            await streamQueryAsExcel(
+                connection, query.sql, query.parameters,
+                excelColumns.map(([, key]) => key), worksheet, res
+            );
             await workbook.commit();
             return;
         }
@@ -465,22 +427,9 @@ router.get('/api/management-dashboard/export', async (req, res) => {
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="label_${viewName}_${dateTag}.csv"`);
         res.write('\uFEFF');
-        if (filters.view === 'cartons') {
-            res.write(csvRow(excelColumns.map(([header]) => header)));
-            const query = cartonSelect(cartonFilter);
-            await streamQueryAsCsv(connection, query.sql, query.parameters, excelColumns.map(([, key]) => key), res);
-        } else {
-            res.write(csvRow(excelColumns.map(([header]) => header)));
-            const query = `SELECT * FROM (${productUnion(standardFilter, arnFilter)}) AS product_records
-                           ORDER BY eventAt DESC, recordId DESC`;
-            await streamQueryAsCsv(
-                connection,
-                query,
-                [...standardFilter.parameters, ...arnFilter.parameters],
-                excelColumns.map(([, key]) => key),
-                res
-            );
-        }
+        res.write(csvRow(excelColumns.map(([header]) => header)));
+        const query = cartonSelect(cartonFilter);
+        await streamQueryAsCsv(connection, query.sql, query.parameters, excelColumns.map(([, key]) => key), res);
 
         if (!res.destroyed) res.end();
     } catch (error) {

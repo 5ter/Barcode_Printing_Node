@@ -110,16 +110,16 @@ async function createCarton(connection, printerId, data) {
 async function createPendingPrintJob(connection, carton, actualQuantity) {
     const dateCode = getWWYY.getWWYY();
     await connection.execute(
-        'INSERT INTO arn_label_part_sequence (manufacturer_part_no, date_code, last_item_no) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
-        [carton.manufacturer_part_no, dateCode]
+        'INSERT INTO arn_label_weekly_sequence (date_code, last_item_no) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_item_no = last_item_no + 1',
+        [dateCode]
     );
     const [sequenceRows] = await connection.execute(
-        'SELECT last_item_no FROM arn_label_part_sequence WHERE manufacturer_part_no = ? AND date_code = ? FOR UPDATE',
-        [carton.manufacturer_part_no, dateCode]
+        'SELECT last_item_no FROM arn_label_weekly_sequence WHERE date_code = ? FOR UPDATE',
+        [dateCode]
     );
     const itemNo = Number(sequenceRows[0] && sequenceRows[0].last_item_no);
     if (!Number.isSafeInteger(itemNo) || itemNo < 1) {
-        throw new Error('Invalid ARN sequence value for Manufacturer Part No. ' + carton.manufacturer_part_no);
+        throw new Error('Invalid ARN weekly sequence value for date code ' + dateCode);
     }
 
     const labelReference = dateCode + '-' + itemNo.toString().padStart(6, '0');
@@ -415,9 +415,9 @@ router.post('/api/scan', async (req, res) => {
 
     let connection;
     let transactionOpen = false;
-    let printJob = null;
     let scanId = null;
     let scannedCount = 0;
+    let cartonReadyToSeal = false;
     try {
         connection = await db.getConnection();
         await connection.beginTransaction();
@@ -460,10 +460,8 @@ router.post('/api/scan', async (req, res) => {
             'UPDATE arn_cartons SET scanned_count = ? WHERE id = ?',
             [scannedCount, carton.id]
         );
+        cartonReadyToSeal = scannedCount === capacity;
 
-        if (scannedCount === capacity) {
-            printJob = await createPendingPrintJob(connection, carton, scannedCount);
-        }
         await connection.commit();
         transactionOpen = false;
     } catch (error) {
@@ -474,26 +472,12 @@ router.post('/api/scan', async (req, res) => {
         if (connection) connection.release();
     }
 
-    let printResult = null;
-    if (printJob) printResult = await transmitPrintJob(printJob);
     const state = await getStateForResponse(printerId);
-    if (printResult && !printResult.success) {
-        return res.status(502).json({
-            status: 'error',
-            message: 'The carton is full, but ARN label printing failed. Retry the same saved label before proceeding.',
-            scanId,
-            scannedCount,
-            printHistoryId: printJob.historyId,
-            labelReference: printJob.labelReference,
-            state
-        });
-    }
     return res.json({
         status: 'success',
         scanId,
         scannedCount,
-        labelPrinted: Boolean(printJob),
-        labelReference: printJob && printJob.labelReference,
+        cartonReadyToSeal,
         state
     });
 });
@@ -527,7 +511,7 @@ router.post('/api/scan/remove', async (req, res) => {
         if (!cartonRows.length || cartonRows[0].status !== 'OPEN') {
             await connection.rollback();
             transactionOpen = false;
-            return res.status(409).json({ status: 'error', message: 'A full or sealed carton cannot be edited because its label has already been printed.' });
+            return res.status(409).json({ status: 'error', message: 'This carton cannot be edited because its ARN label has already been prepared for printing.' });
         }
         const [removeResult] = await connection.execute(
             'UPDATE arn_carton_scans SET removed_at = CURRENT_TIMESTAMP WHERE id = ? AND carton_id = ? AND removed_at IS NULL',

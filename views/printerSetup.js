@@ -4,8 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawerShell = document.getElementById('printerEditBackdrop');
     const drawer = document.getElementById('printerEditDrawer');
     const form = document.getElementById('printerEditForm');
-    const saveButton = document.getElementById('savePrinterAssignment');
-    const saveDetailsButton = document.getElementById('savePrinterDetails');
+    const saveButton = document.getElementById('savePrinterConfiguration');
     const refreshButton = document.getElementById('refreshPrinters');
     const addPrinterButton = document.getElementById('addPrinter');
     const addPrinterShell = document.getElementById('addPrinterBackdrop');
@@ -50,16 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function assignedPrinterIds(source = assignments) {
         return new Set(Object.values(source).filter(Boolean));
-    }
-
-    function hasUnsavedPrinterDetails() {
-        if (!selectedPrinter) return false;
-        return form.elements.namedItem('name').value.trim() !== (selectedPrinter.name || '') ||
-            form.elements.namedItem('model').value.trim() !== (selectedPrinter.model || '') ||
-            form.elements.namedItem('location').value.trim() !== (selectedPrinter.location || '') ||
-            form.elements.namedItem('ipAddress').value.trim() !== (selectedPrinter.ipAddress || '') ||
-            form.elements.namedItem('macAddress').value.trim() !== (selectedPrinter.macAddress || '') ||
-            Number(form.elements.namedItem('port').value) !== Number(selectedPrinter.port);
     }
 
     function makeDetail(label, value, accent = false) {
@@ -216,8 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         editImpact.textContent = pieces.join(' ');
         editImpact.className = 'edit-impact' + (desiredWorkflow !== currentWorkflow && currentWorkflow === 'ARN' ? ' warning' : '');
-        saveButton.disabled = saving || loading || desiredWorkflow === currentWorkflow;
-        saveDetailsButton.disabled = saving || loading;
+        saveButton.disabled = saving || loading;
         restoreDefaultsButton.disabled = saving || loading;
     }
 
@@ -433,8 +421,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     refreshButton.addEventListener('click', loadAssignments);
 
-    async function savePrinterDetails() {
-        if (saving || !selectedPrinter) return;
+    async function savePrinterConfiguration() {
+        if (saving || !selectedPrinter || !form.reportValidity()) return;
         const printerId = selectedPrinter.id;
         const currentWorkflow = workflowForPrinter(printerId);
         const payload = {
@@ -443,7 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
             location: form.elements.namedItem('location').value.trim(),
             ipAddress: form.elements.namedItem('ipAddress').value.trim(),
             macAddress: form.elements.namedItem('macAddress').value.trim(),
-            port: Number(form.elements.namedItem('port').value)
+            port: Number(form.elements.namedItem('port').value),
+            workflowKey: selectedWorkflow()
         };
         const connectionChanged = payload.ipAddress !== selectedPrinter.ipAddress ||
             payload.port !== Number(selectedPrinter.port);
@@ -452,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
         )) return;
 
         saving = true;
-        saveDetailsButton.textContent = 'Saving printer details';
+        saveButton.textContent = 'Saving printer and assignment…';
         setDrawerError('');
         assignmentPreview();
         try {
@@ -470,63 +459,27 @@ document.addEventListener('DOMContentLoaded', () => {
             restoreDefaultsButton.hidden = !selectedPrinter.isApplicationPrinter;
             document.getElementById('editPrinterName').textContent = selectedPrinter.name || selectedPrinter.id;
             document.getElementById('editPrinterPort').textContent = 'TCP port ' + selectedPrinter.port;
-            renderInventory();
-            showMessage(result.message, 'success');
-        } catch (error) {
-            setDrawerError(error.message);
-        } finally {
-            saving = false;
-            saveDetailsButton.textContent = 'Save Printer Details';
-            if (selectedPrinter) assignmentPreview();
-        }
-    }
-
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
-        if (!event.submitter || event.submitter.value === 'details') {
-            await savePrinterDetails();
-            return;
-        }
-        if (hasUnsavedPrinterDetails()) {
-            setDrawerError('Save Printer Details before changing this workflow assignment; the two actions are saved separately.');
-            return;
-        }
-        if (saving || !selectedPrinter) return;
-        const workflowKey = selectedWorkflow();
-        const currentWorkflow = workflowForPrinter(selectedPrinter.id);
-        if (workflowKey === currentWorkflow) return;
-
-        saving = true;
-        saveButton.textContent = 'Saving assignment…';
-        saveButton.disabled = true;
-        setDrawerError('');
-        assignmentPreview();
-        try {
-            const response = await fetch('/api/printer-setup/assignments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ printerId: selectedPrinter.id, workflowKey })
-            });
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok || result.status !== 'success') {
-                throw new Error(result.message || 'Could not save this printer assignment.');
-            }
             assignments = {
                 STANDARD: result.assignments.STANDARD.printerId || null,
                 ARN: result.assignments.ARN.printerId || null
             };
             updateSummary();
             renderInventory();
-            showMessage('Printer assignment saved. The previous workflow/printer is now unassigned as shown in the inventory.', 'success');
             saving = false;
             closeEditor();
+            showMessage(result.message, 'success');
         } catch (error) {
             setDrawerError(error.message);
         } finally {
             saving = false;
-            saveButton.textContent = 'Save Assignment';
+            saveButton.textContent = 'Save Printer & Assignment';
             if (selectedPrinter) assignmentPreview();
         }
+    }
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        await savePrinterConfiguration();
     });
 
     loadAssignments();
