@@ -37,6 +37,7 @@
 .app-shell-brand small { color: #bcaecc; font: 700 9px/1.2 "JetBrains Mono", Consolas, monospace; letter-spacing: .11em; }
 .app-shell-nav { min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; }
 .app-shell-nav a { min-height: 38px; display: inline-flex; align-items: center; padding: 8px 11px; border-radius: 5px; color: #dacbe7; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
+.app-shell-nav a[hidden] { display: none !important; }
 .app-shell-nav a:hover { transform: translateY(-1px); }
 .app-shell-nav a:hover { background: #ffffff12; color: #fff; }
 .app-shell-nav a[aria-current="page"] { background: var(--app-blue); color: #fff; }

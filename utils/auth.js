@@ -5,6 +5,27 @@ const COOKIE_NAME = 'actmax_role_session';
 const SESSION_LIFETIME_MS = 8 * 60 * 60 * 1000;
 const DEVELOPMENT_SECRET = 'actmax-local-development-only-change-before-production';
 const VALID_ROLES = new Set(Object.keys(rolePasswords));
+const PAGE_ROLE_ACCESS = Object.freeze({
+    hub: Object.freeze(['OPERATOR', 'SUPERVISOR', 'ADMIN']),
+    standard: Object.freeze(['OPERATOR', 'ADMIN']),
+    arn: Object.freeze(['OPERATOR', 'ADMIN']),
+    excel: Object.freeze(['SUPERVISOR', 'ADMIN']),
+    printer: Object.freeze(['ADMIN']),
+    download: Object.freeze(['ADMIN']),
+    dashboard: Object.freeze(['SUPERVISOR', 'ADMIN'])
+});
+
+function getRolesForPage(page) {
+    return PAGE_ROLE_ACCESS[String(page || '').trim().toLowerCase()] || [];
+}
+
+function getAccessiblePages(roleValue) {
+    const role = String(roleValue || '').trim().toUpperCase();
+    if (!VALID_ROLES.has(role)) return [];
+    return Object.entries(PAGE_ROLE_ACCESS)
+        .filter(([, allowedRoles]) => allowedRoles.includes(role))
+        .map(([page]) => page);
+}
 
 function getSessionSecret() {
     if (process.env.AUTH_SESSION_SECRET) {
@@ -125,6 +146,9 @@ function authConfigurationReady() {
 function requireRoles(allowedRoles, options = {}) {
     const allowed = new Set(allowedRoles.map(role => String(role).toUpperCase()));
     return (req, res, next) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         if (!authConfigurationReady()) {
             return res.status(503).send('Authentication is not configured. Set the same AUTH_SESSION_SECRET for the application services.');
         }
@@ -164,6 +188,14 @@ function requireRoles(allowedRoles, options = {}) {
     };
 }
 
+function requirePageAccess(page, options = {}) {
+    const allowedRoles = getRolesForPage(page);
+    if (allowedRoles.length === 0) {
+        throw new Error('No role access is configured for page: ' + String(page));
+    }
+    return requireRoles(allowedRoles, options);
+}
+
 function escapeAttribute(value) {
     return String(value).replace(/[&<>"']/g, character => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -174,6 +206,8 @@ module.exports = {
     COOKIE_NAME,
     SESSION_LIFETIME_MS,
     VALID_ROLES,
+    getAccessiblePages,
+    requirePageAccess,
     verifyCredentials,
     createSessionToken,
     getRoleFromToken,

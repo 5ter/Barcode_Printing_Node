@@ -2,6 +2,7 @@ const express = require('express');
 const {
     verifyCredentials,
     getRequestRole,
+    getAccessiblePages,
     setSessionCookie,
     clearSessionCookie,
     authConfigurationReady
@@ -32,7 +33,8 @@ router.get('/auth/me', (req, res) => {
     if (!authConfigurationReady()) {
         return res.status(503).json({ status: 'error', role: null, message: 'Authentication is not configured.' });
     }
-    return res.json({ status: 'success', role: getRequestRole(req) });
+    const role = getRequestRole(req);
+    return res.json({ status: 'success', role, accessiblePages: getAccessiblePages(role) });
 });
 
 router.post('/auth/login', (req, res) => {
@@ -63,7 +65,11 @@ router.post('/auth/login', (req, res) => {
     attemptsByIp.delete(ip);
     try {
         setSessionCookie(res, req, role);
-        return res.json({ status: 'success', role: role.toLowerCase() });
+        return res.json({
+            status: 'success',
+            role: role.toLowerCase(),
+            accessiblePages: getAccessiblePages(role)
+        });
     } catch (error) {
         return res.status(503).json({ status: 'error', message: error.message });
     }

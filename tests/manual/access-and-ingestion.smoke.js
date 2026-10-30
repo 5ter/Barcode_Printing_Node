@@ -46,9 +46,15 @@ async function main() {
             headers: { Cookie: sessionCookie('SUPERVISOR'), 'Content-Type': 'application/json' },
             body: '{}'
         })).status, 403);
+        assert.equal((await fetch(mainUrl + '/submit-data', {
+            method: 'POST',
+            headers: { Cookie: sessionCookie('OPERATOR'), 'Content-Type': 'application/json' },
+            body: '{}'
+        })).status, 400);
         assert.equal((await get(mainUrl, '/dashboard', 'SUPERVISOR')).status, 200);
         assert.equal((await get(mainUrl, '/arn/setup', 'ADMIN')).status, 200);
         assert.equal((await get(mainUrl, '/dashboard', 'OPERATOR')).status, 403);
+        assert.equal((await get(mainUrl, '/api/management-dashboard/printers', 'OPERATOR')).status, 403);
 
         const uploaderHtml = await (await get(excelUrl, '/', 'SUPERVISOR')).text();
         assert.equal(uploaderHtml.includes('Ready to Commit'), false);

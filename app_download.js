@@ -6,20 +6,55 @@ const path = require('path');
 const app = express();
 const db = require('./db/root'); // Assuming this exports your database pool
 const port = process.env.PORT || 3006;
+const mainAppPort = Number(process.env.MAIN_APP_PORT) || 3003;
 const logger = require('./utils/logger'); 
+const authRouter = require('./routes/auth');
+const { requirePageAccess } = require('./utils/auth');
 // Serve static files (like your download_interface.html)
 // Note: Changed to serve from the root directory for simplicity, 
 // assuming 'download_interface.html' is in a 'views' folder or similar.
 app.use('/css', express.static(path.join(__dirname, 'css')));
+app.use('/image', express.static(path.join(__dirname, 'image')));
+app.get('/image/actmax_logo.png', (req, res) => {
+    res.sendFile(path.join(__dirname, 'actmax_logo.png'));
+});
+app.use(express.json());
+app.use(authRouter);
+app.get('/app-shell.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'appShell.js'));
+});
+
+function mainHubUrl(req) {
+    const hub = new URL(req.protocol + '://' + req.get('host'));
+    hub.port = String(mainAppPort);
+    hub.pathname = '/';
+    hub.search = '';
+    hub.hash = '';
+    return hub;
+}
+
+function downloadLoginRedirect(req) {
+    const returnTarget = req.protocol + '://' + req.get('host') + (req.originalUrl || '/');
+    const hub = mainHubUrl(req);
+    hub.searchParams.set('login', 'required');
+    hub.searchParams.set('returnTo', returnTarget);
+    return hub.toString();
+}
+
+const downloadAccess = requirePageAccess('download', {
+    loginRedirect: downloadLoginRedirect,
+    homeUrl: req => mainHubUrl(req).toString()
+});
 
 // Root route to serve the interactive HTML file
-app.get('/', (req, res) => {
+app.get('/', downloadAccess, (req, res) => {
     // Ensure the path to your HTML file is correct
     res.sendFile(path.join(__dirname, 'views', 'download_interface.html'));
 });
 
 // 2. API endpoint to handle the download request
-app.get('/api/download-table', async (req, res) => {
+app.get('/api/download-table', downloadAccess, async (req, res) => {
     const { start, end } = req.query; // Dates will be in 'YYYY-MM-DD' format from the HTML input
     let connection; // Declare connection outside try block for scope
 

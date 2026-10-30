@@ -2,6 +2,7 @@
 body.download-page { min-height: 100vh; background: #0d0912 !important; color: #f8f2ff; font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif; }
 .download-page .download-card { border: 1px solid #463057; border-radius: 10px; background: #171020 !important; box-shadow: 0 14px 32px rgb(0 0 0 / 32%); }
 .download-card-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -4px 0 18px; color: #bcaecc; font: 700 10px "JetBrains Mono", Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.download-card-toolbar { display: none; }
 .download-page .download-theme-toggle { border-color: #5b3e73; background: #20152c; color: #f8f2ff; font: 700 11px "Hanken Grotesk", "Segoe UI", Arial, sans-serif; letter-spacing: 0; text-transform: none; }
 .download-page .download-theme-toggle:hover { border-color: #8d63aa; background: #2a1a3a; color: #fff; }
 .download-page h2 { color: #d7adff !important; }

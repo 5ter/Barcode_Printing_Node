@@ -4,7 +4,7 @@ const path = require('path');
 const db = require('../db/root');
 const printerSettings = require('../config/printerSetting');
 const logger = require('../utils/logger');
-const { requireRoles } = require('../utils/auth');
+const { requirePageAccess } = require('../utils/auth');
 const {
     WORKFLOWS,
     normalizePrinterId,
@@ -73,14 +73,14 @@ async function arnWorkflowHasActiveWork(connection, printerId) {
     return Number(activeRows[0] && activeRows[0].active_count || 0) > 0;
 }
 
-router.get('/printer-setup', requireRoles(['ADMIN']), (req, res) => {
+router.get('/printer-setup', requirePageAccess('printer'), (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.sendFile(path.join(__dirname, '..', 'views', 'printerSetup.html'));
 });
 
 // Workstation pages need the current route to display the assigned printer;
 // this read-only summary intentionally omits network addresses and ports.
-router.get('/api/workflow-printers', async (req, res) => {
+router.get('/api/workflow-printers', requirePageAccess('standard'), async (req, res) => {
     let connection;
     try {
         connection = await db.getConnection();
@@ -105,7 +105,7 @@ router.get('/api/workflow-printers', async (req, res) => {
     }
 });
 
-router.get('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (req, res) => {
+router.get('/api/printer-setup/assignments', requirePageAccess('printer'), async (req, res) => {
     let connection;
     try {
         connection = await db.getConnection();
@@ -127,7 +127,7 @@ router.get('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (req
     }
 });
 
-router.post('/api/printer-setup/printers', requireRoles(['ADMIN']), async (req, res) => {
+router.post('/api/printer-setup/printers', requirePageAccess('printer'), async (req, res) => {
     const parsed = readPrinterDetails(req.body || {});
     if (parsed.error) return res.status(400).json({ status: 'error', message: parsed.error });
     const { name, model, location, ipAddress, macAddress, port } = parsed.values;
@@ -180,7 +180,7 @@ router.post('/api/printer-setup/printers', requireRoles(['ADMIN']), async (req, 
     }
 });
 
-router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), async (req, res) => {
+router.put('/api/printer-setup/printers/:printerId', requirePageAccess('printer'), async (req, res) => {
     const printerId = normalizePrinterId(req.params.printerId);
     if (!printerId) {
         return res.status(400).json({ status: 'error', message: 'Choose a valid printer.' });
@@ -320,7 +320,7 @@ router.put('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), as
     }
 });
 
-router.delete('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']), async (req, res) => {
+router.delete('/api/printer-setup/printers/:printerId', requirePageAccess('printer'), async (req, res) => {
     const printerId = normalizePrinterId(req.params.printerId);
     if (!printerId || !printerSettings.getPrinterConfig(printerId)) {
         return res.status(400).json({ status: 'error', message: 'Only server-defined printers can restore server values.' });
@@ -364,7 +364,7 @@ router.delete('/api/printer-setup/printers/:printerId', requireRoles(['ADMIN']),
     }
 });
 
-router.post('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (req, res) => {
+router.post('/api/printer-setup/assignments', requirePageAccess('printer'), async (req, res) => {
     const body = req.body || {};
     const printerId = normalizePrinterId(body.printerId);
     const workflowKey = String(body.workflowKey || '').trim().toUpperCase();
@@ -464,7 +464,7 @@ router.post('/api/printer-setup/assignments', requireRoles(['ADMIN']), async (re
     }
 });
 
-router.get('/printer-setup.js', requireRoles(['ADMIN']), (req, res) => {
+router.get('/printer-setup.js', requirePageAccess('printer'), (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.type('application/javascript').sendFile(path.join(__dirname, '..', 'views', 'printerSetup.js'));
 });

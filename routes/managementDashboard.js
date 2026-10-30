@@ -3,20 +3,21 @@ const path = require('path');
 const ExcelJS = require('exceljs');
 const db = require('../db/root');
 const { getConfiguredPrinters, loadConfiguredPrinters, normalizePrinterId } = require('../utils/workflowPrinterAssignments');
-const { requireRoles } = require('../utils/auth');
+const { requirePageAccess } = require('../utils/auth');
 
 const router = express.Router();
 const ASSET_DIRECTORY = path.join(__dirname, '..', 'views', 'management-dashboard-assets');
 const MAX_PAGE_SIZE = 100;
 const EXPORT_BATCH_SIZE = 1000;
-const dashboardAccess = requireRoles(['SUPERVISOR', 'ADMIN']);
+const dashboardAccess = requirePageAccess('dashboard');
 
 // The dashboard is read-only, but still contains operational traceability
 // data and must not be available merely because its navigation link is hidden.
-router.use(dashboardAccess);
-router.use('/dashboard-assets', express.static(ASSET_DIRECTORY));
+// Scope authorization to dashboard URLs so this root-mounted router does not
+// intercept unrelated operator routes registered after it in apps.js.
+router.use('/dashboard-assets', dashboardAccess, express.static(ASSET_DIRECTORY));
 
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', dashboardAccess, (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'managementDashboard.html'));
 });
 
@@ -169,7 +170,36 @@ function cartonSelect(filter, withPagination) {
     };
 }
 
-router.get('/api/management-dashboard/printers', async (req, res) => {
+function productLabelSelect(filter, withPagination) {
+    return {
+        sql: `SELECT
+                s.id AS scanId,
+                COALESCE(c.id, h.carton_id) AS cartonId,
+                h.id AS printHistoryId,
+                h.label_content AS labelReference,
+                h.mo AS mo,
+                h.arn_part_no AS arnPartNo,
+                h.manufacturer_part_no AS manufacturerPartNo,
+                h.purchase_order AS purchaseOrder,
+                c.box_capacity AS boxCapacity,
+                COALESCE(c.scanned_count, 0) AS cartonScannedCount,
+                c.status AS cartonStatus,
+                s.scanned_content AS scannedContent,
+                CASE WHEN s.removed_at IS NULL THEN 'IN CARTON' ELSE 'REMOVED' END AS scanStatus,
+                s.scanned_at AS scannedAt,
+                s.removed_at AS removedAt,
+                h.print_status AS cartonPrintStatus,
+                h.printer_id AS printerId,
+                h.printed_at AS cartonPrintedAt
+            FROM arn_label_print_history h
+            LEFT JOIN arn_cartons c ON c.id = h.carton_id OR c.label_history_id = h.id
+            INNER JOIN arn_carton_scans s ON s.carton_id = c.id${filter.sql}
+            ORDER BY h.printed_at DESC, h.id DESC, s.id ASC${withPagination ? ' LIMIT ? OFFSET ?' : ''}`,
+        parameters: filter.parameters
+    };
+}
+
+router.get('/api/management-dashboard/printers', dashboardAccess, async (req, res) => {
     let connection;
     try {
         connection = await db.getConnection();
@@ -234,7 +264,7 @@ async function readCounts(connection, cartonFilter, arnScanFilter) {
     };
 }
 
-router.get('/api/management-dashboard', async (req, res) => {
+router.get('/api/management-dashboard', dashboardAccess, async (req, res) => {
     const parsed = readFilters(req.query);
     if (parsed.error) return res.status(400).json({ status: 'error', message: parsed.error });
 
@@ -277,7 +307,7 @@ router.get('/api/management-dashboard', async (req, res) => {
     }
 });
 
-router.get('/api/management-dashboard/cartons/:cartonId/scans', async (req, res) => {
+router.get('/api/management-dashboard/cartons/:cartonId/scans', dashboardAccess, async (req, res) => {
     const cartonId = String(req.params.cartonId || '').trim();
     if (!/^[1-9]\d*$/.test(cartonId)) {
         return res.status(400).json({ status: 'error', message: 'A valid carton ID is required.' });
@@ -366,7 +396,21 @@ async function streamQueryAsExcel(connection, baseSql, parameters, columns, work
     }
 }
 
-router.get('/api/management-dashboard/export', async (req, res) => {
+function configureExcelWorksheet(worksheet, columns) {
+    worksheet.columns = columns.map(([header, key]) => ({
+        header,
+        width: key === 'scannedContent' ? 60 : Math.min(42, Math.max(12, header.length + 3))
+    }));
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF123B83' } };
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+    worksheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: columns.length }
+    };
+}
+
+router.get('/api/management-dashboard/export', dashboardAccess, async (req, res) => {
     const parsed = readFilters(req.query);
     if (parsed.error) return res.status(400).json({ status: 'error', message: parsed.error });
 
@@ -393,6 +437,17 @@ router.get('/api/management-dashboard/export', async (req, res) => {
             ['Date Code', 'dateCode'], ['Item No.', 'itemNo'], ['Retry Count', 'retryCount'],
             ['Last Error', 'lastError']
         ];
+        const productLabelColumns = [
+            ['Scan ID', 'scanId'], ['Carton ID', 'cartonId'],
+            ['ARN Label Reference', 'labelReference'], ['Print History ID', 'printHistoryId'],
+            ['MO', 'mo'], ['ARN Part No.', 'arnPartNo'],
+            ['Manufacturer Part No.', 'manufacturerPartNo'], ['Purchase Order', 'purchaseOrder'],
+            ['Product Label Content', 'scannedContent'], ['Scan Status', 'scanStatus'],
+            ['Scanned At', 'scannedAt'], ['Removed At', 'removedAt'],
+            ['Carton Status', 'cartonStatus'], ['Carton Scanned Count', 'cartonScannedCount'],
+            ['Box Capacity', 'boxCapacity'], ['Carton Print Status', 'cartonPrintStatus'],
+            ['Printer', 'printerId'], ['Carton Label Printed At', 'cartonPrintedAt']
+        ];
 
         if (format === 'xlsx') {
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -400,25 +455,22 @@ router.get('/api/management-dashboard/export', async (req, res) => {
             const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
                 stream: res,
                 useStyles: true,
-                useSharedStrings: true
+                useSharedStrings: false
             });
             const worksheet = workbook.addWorksheet('ARN carton labels');
-            worksheet.columns = excelColumns.map(([header]) => ({
-                header,
-                width: Math.min(34, Math.max(12, header.length + 3))
-            }));
-            worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF123B83' } };
-            worksheet.views = [{ state: 'frozen', ySplit: 1 }];
-            worksheet.autoFilter = {
-                from: { row: 1, column: 1 },
-                to: { row: 1, column: excelColumns.length }
-            };
+            configureExcelWorksheet(worksheet, excelColumns);
 
             const query = cartonSelect(cartonFilter);
             await streamQueryAsExcel(
                 connection, query.sql, query.parameters,
                 excelColumns.map(([, key]) => key), worksheet, res
+            );
+            const productLabelWorksheet = workbook.addWorksheet('Product label records');
+            configureExcelWorksheet(productLabelWorksheet, productLabelColumns);
+            const productLabelQuery = productLabelSelect(cartonFilter);
+            await streamQueryAsExcel(
+                connection, productLabelQuery.sql, productLabelQuery.parameters,
+                productLabelColumns.map(([, key]) => key), productLabelWorksheet, res
             );
             await workbook.commit();
             return;
@@ -433,7 +485,7 @@ router.get('/api/management-dashboard/export', async (req, res) => {
 
         if (!res.destroyed) res.end();
     } catch (error) {
-        console.error('Management dashboard CSV export failed:', error);
+        console.error('Management dashboard export failed:', error);
         if (!res.headersSent) {
             return res.status(500).json({
                 status: 'error',

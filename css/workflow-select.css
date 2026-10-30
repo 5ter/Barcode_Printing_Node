@@ -43,6 +43,7 @@ a { color: inherit; }
 .intro h1 { margin: 0; color: #102035; font-size: clamp(30px, 4vw, 40px); line-height: 1.2; letter-spacing: -.035em; }
 .intro-copy { max-width: 680px; margin: 12px auto 0; color: var(--muted); font-size: 18px; line-height: 1.6; }
 .workflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; }
+.workflow-grid[hidden], .workflow-card[hidden], .station-note[hidden] { display: none !important; }
 .workflow-card { display: flex; min-height: 280px; flex-direction: column; padding: 31px 30px 29px; border: 1px solid var(--border); border-radius: 10px; background: #fff; box-shadow: 0 2px 4px rgb(18 34 58 / 5%); }
 .card-kicker { color: #6d7890; font: 800 10px var(--mono); letter-spacing: .12em; }
 .workflow-card h2 { margin: 11px 0 8px; font-size: 27px; line-height: 1.2; letter-spacing: -.025em; }

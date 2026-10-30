@@ -12,7 +12,7 @@ const port = process.env.PORT || 3005;
 const mainAppPort = Number(process.env.MAIN_APP_PORT) || 3003;
 const uploaderPagePath = path.join(__dirname, 'excel uploader page', 'code.html');
 const authRouter = require('./routes/auth');
-const { requireRoles, getRequestRole } = require('./utils/auth');
+const { requirePageAccess, getRequestRole } = require('./utils/auth');
 
 // --- Configuration ---
 // --- NEW: Import the custom logger utility ---
@@ -122,7 +122,7 @@ function uploaderLoginRedirect(req) {
     return hub.toString();
 }
 
-const uploaderAccess = requireRoles(['SUPERVISOR', 'ADMIN'], {
+const uploaderAccess = requirePageAccess('excel', {
     loginRedirect: uploaderLoginRedirect,
     homeUrl: req => mainHubUrl(req).toString()
 });

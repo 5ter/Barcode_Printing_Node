@@ -21,8 +21,8 @@
             <p class="intro-copy">Choose the label process for this workstation. Each workflow opens on its own page.</p>
         </section>
 
-        <section class="workflow-grid" aria-label="Available label workflows">
-            <article class="workflow-card arn-card">
+        <section id="workflowGrid" class="workflow-grid" aria-label="Available label workflows" hidden>
+            <article class="workflow-card arn-card" data-role-page="arn" hidden>
                 <div class="card-kicker">CARTON TRACEABILITY</div>
                 <h2>ARN Customer Workflow</h2>
                 <p>Lock an MO and part, scan products into each carton, and print the ARN carton label when it is complete.</p>
@@ -33,7 +33,7 @@
                 </a>
             </article>
 
-            <article class="workflow-card standard-card">
+            <article class="workflow-card standard-card" data-role-page="standard" hidden>
                 <div class="card-kicker">PRODUCT LABEL PRINTING</div>
                 <h2>Standard Product Label</h2>
                 <p>Use the established Standard process to enter an MO and Actmax Part No. and print product labels.</p>
@@ -46,6 +46,7 @@
         </section>
 
         <p class="station-note"><span class="ready-mark" aria-hidden="true">✓</span> Select a workflow to begin station setup.</p>
+        <p id="workflowAccessNote" class="station-note">Sign in to see the pages available to your role.</p>
     </main>
 
     <footer class="page-footer">
@@ -54,7 +55,10 @@
     </footer>
 
     <script>
-        fetch('/api/workflow-printers', { cache: 'no-store' })
+        window.addEventListener('actmax:role-ready', event => {
+            const pages = event.detail && event.detail.accessiblePages || [];
+            if (!pages.includes('arn') && !pages.includes('standard')) return;
+            fetch('/api/workflow-printers', { cache: 'no-store' })
             .then(response => response.json().then(data => ({ response, data })))
             .then(({ response, data }) => {
                 if (!response.ok || data.status !== 'success') throw new Error('Assignment unavailable');
@@ -71,6 +75,7 @@
                 document.getElementById('arnAssignedPrinter').textContent = 'Assignment unavailable';
                 document.getElementById('standardAssignedPrinter').textContent = 'Assignment unavailable';
             });
+        });
     </script>
 </body>
 </html>

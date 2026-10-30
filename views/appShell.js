@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? window.location.port
         : '3003');
     const excelPort = body.dataset.excelAppPort || '3005';
+    const downloadPort = body.dataset.downloadAppPort || '3006';
     let currentRole = null;
     let lastFocus = null;
 
@@ -58,10 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isCurrentPage(key) {
         const path = window.location.pathname;
-        if (key === 'hub') return path === '/' && window.location.port !== '3005';
+        if (key === 'hub') return path === '/' && window.location.port !== excelPort && window.location.port !== downloadPort;
         if (key === 'dashboard') return path === '/dashboard';
         if (key === 'printer') return path.startsWith('/printer-setup');
         if (key === 'excel') return window.location.port === excelPort && path === '/';
+        if (key === 'download') return window.location.port === downloadPort && path === '/';
         if (key === 'arn') return path.startsWith('/arn/');
         if (key === 'standard') return path === '/standard';
         return false;
@@ -98,10 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
         standard: makeLink('Standard Label', serviceUrl(mainPort, '/standard'), 'standard'),
         arn: makeLink('ARN Workflow', serviceUrl(mainPort, '/arn/setup'), 'arn'),
         excel: makeLink('Excel Upload', serviceUrl(excelPort, '/'), 'excel'),
+        download: makeLink('Download Data', serviceUrl(downloadPort, '/'), 'download'),
         printer: makeLink('Printer Setup', serviceUrl(mainPort, '/printer-setup'), 'printer'),
         dashboard: makeLink('Dashboard', serviceUrl(mainPort, '/dashboard'), 'dashboard')
     };
-    nav.append(links.hub, links.standard, links.arn, links.excel, links.printer, links.dashboard);
+    nav.append(links.hub, links.standard, links.arn, links.excel, links.printer, links.dashboard, links.download);
 
     const account = document.createElement('div');
     account.className = 'app-shell-account';
@@ -152,22 +155,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
     }
 
-    function updateNavigation(role) {
-        currentRole = role;
-        const isAdmin = role === 'ADMIN';
-        const canUpload = role === 'ADMIN' || role === 'SUPERVISOR';
-        const canRunWorkflow = role === 'OPERATOR' || isAdmin;
-        const canViewDashboard = role === 'SUPERVISOR' || isAdmin;
-        const isSignedIn = Boolean(role);
-        links.standard.hidden = !canRunWorkflow;
-        links.arn.hidden = !canRunWorkflow;
-        links.excel.hidden = !canUpload;
-        links.printer.hidden = !isAdmin;
-        links.dashboard.hidden = !canViewDashboard;
+    function updateNavigation(role, accessiblePages = []) {
+        const normalizedRole = String(role || '').trim().toUpperCase();
+        currentRole = normalizedRole || null;
+        const pages = new Set(Array.isArray(accessiblePages)
+            ? accessiblePages.map(page => String(page).trim().toLowerCase())
+            : []);
+        const isSignedIn = Boolean(currentRole);
+        for (const page of ['standard', 'arn', 'excel', 'printer', 'dashboard', 'download']) {
+            links[page].hidden = !pages.has(page);
+        }
+        document.querySelectorAll('[data-role-page]').forEach(element => {
+            element.hidden = !pages.has(String(element.dataset.rolePage || '').trim().toLowerCase());
+        });
+        const workflowGrid = document.getElementById('workflowGrid');
+        const workflowAccessNote = document.getElementById('workflowAccessNote');
+        const canRunWorkflow = pages.has('arn') || pages.has('standard');
+        if (workflowGrid) workflowGrid.hidden = !canRunWorkflow;
+        if (workflowAccessNote) {
+            workflowAccessNote.hidden = canRunWorkflow;
+            if (!currentRole) {
+                workflowAccessNote.textContent = 'Sign in to see the pages available to your role.';
+            } else if (!canRunWorkflow) {
+                workflowAccessNote.textContent = 'Your role does not include label-printing workflows. Use Excel Upload or Dashboard in the navigation above.';
+            }
+        }
+        const stationNote = document.querySelector('.station-note');
+        if (stationNote) stationNote.hidden = !canRunWorkflow;
         roleBadge.hidden = !isSignedIn;
-        roleBadge.textContent = role ? role.charAt(0) + role.slice(1).toLowerCase() : '';
+        roleBadge.textContent = currentRole ? currentRole.charAt(0) + currentRole.slice(1).toLowerCase() : '';
         accountButton.textContent = isSignedIn ? 'Sign out' : 'Sign in';
         accountButton.setAttribute('aria-label', isSignedIn ? 'Sign out of ACTMAX' : 'Sign in to ACTMAX');
+        window.dispatchEvent(new CustomEvent('actmax:role-ready', {
+            detail: { role: currentRole, accessiblePages: [...pages] }
+        }));
     }
 
     function updateThemeButton() {
@@ -177,28 +198,48 @@ document.addEventListener('DOMContentLoaded', () => {
         themeButton.title = themeButton.getAttribute('aria-label');
     }
 
-    updateNavigation(null);
+    updateNavigation(null, []);
     updateThemeButton();
 
     async function loadCurrentRole() {
         try {
             const response = await fetch('/auth/me', { cache: 'no-store', credentials: 'same-origin' });
             const result = await response.json();
-            updateNavigation(response.ok && result.status === 'success' ? result.role : null);
+            updateNavigation(
+                response.ok && result.status === 'success' ? result.role : null,
+                response.ok && result.status === 'success' ? result.accessiblePages : []
+            );
         } catch (error) {
-            updateNavigation(null);
+            updateNavigation(null, []);
         }
     }
 
-    function getSafeReturnTarget() {
+    function pageForTarget(target) {
+        const targetPort = target.port || (target.protocol === 'https:' ? '443' : '80');
+        const pathname = target.pathname;
+        if (targetPort === String(excelPort)) return 'excel';
+        if (targetPort === String(downloadPort)) return 'download';
+        if (targetPort !== String(mainPort)) return null;
+        if (pathname === '/') return 'hub';
+        if (pathname === '/standard' || pathname === '/ajax.js' || pathname.startsWith('/submit-data')) return 'standard';
+        if (pathname === '/arn' || pathname.startsWith('/arn/') || pathname === '/retry-arn-print') return 'arn';
+        if (pathname.startsWith('/printer-setup') || pathname.startsWith('/api/printer-setup')) return 'printer';
+        if (pathname.startsWith('/dashboard') || pathname.startsWith('/api/management-dashboard')) return 'dashboard';
+        if (pathname === '/fetch-data') return 'download';
+        return null;
+    }
+
+    function getSafeReturnTarget(accessiblePages = []) {
         const requested = new URL(window.location.href).searchParams.get('returnTo');
         if (!requested) return null;
         try {
             const target = new URL(requested, window.location.origin);
-            const allowedPorts = new Set([String(mainPort), String(excelPort)]);
+            const allowedPorts = new Set([String(mainPort), String(excelPort), String(downloadPort)]);
             if (target.hostname !== window.location.hostname || target.protocol !== window.location.protocol) return null;
             if (target.origin !== window.location.origin &&
                 !allowedPorts.has(target.port || (target.protocol === 'https:' ? '443' : '80'))) return null;
+            const targetPage = pageForTarget(target);
+            if (targetPage && targetPage !== 'hub' && !accessiblePages.includes(targetPage)) return null;
             return target.toString();
         } catch (error) {
             return null;
@@ -216,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             const isProtectedPage = window.location.pathname.startsWith('/arn/') ||
                 window.location.pathname.startsWith('/printer-setup') ||
-                window.location.port === excelPort;
+                window.location.port === excelPort || window.location.port === downloadPort;
             if (isProtectedPage) window.location.assign(serviceUrl(mainPort, '/'));
             else window.location.reload();
         }
@@ -262,9 +303,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Sign in failed.');
             authPassword.value = '';
             layer.hidden = true;
-            const returnTarget = getSafeReturnTarget();
+            const returnTarget = getSafeReturnTarget(result.accessiblePages || []);
             if (returnTarget) window.location.assign(returnTarget);
-            else window.location.reload();
+            else if (new URL(window.location.href).searchParams.has('returnTo')) {
+                window.location.assign(serviceUrl(mainPort, '/'));
+            } else window.location.reload();
         } catch (error) {
             authError.textContent = error.message;
             authPassword.select();

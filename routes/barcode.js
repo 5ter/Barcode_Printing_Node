@@ -6,8 +6,8 @@ const express = require('express');
 const router = express.Router();
 
 const htmlController = require ('../controllers/publish');
-const { requireRoles } = require('../utils/auth');
-const workflowAccess = requireRoles(['OPERATOR', 'ADMIN']);
+const { requirePageAccess } = require('../utils/auth');
+const workflowAccess = requirePageAccess('standard');
 
 router.get('/', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

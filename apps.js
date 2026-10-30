@@ -11,7 +11,7 @@ const { getAssignedPrinterId, getPrinterConfig } = require('./utils/workflowPrin
 // --- NEW: Import the custom logger utility ---
 const logger = require('./utils/logger'); 
 const authRouter = require('./routes/auth');
-const { requireRoles } = require('./utils/auth');
+const { requirePageAccess } = require('./utils/auth');
 
 // --- Middleware ---
 app.use('/css', express.static(path.join(__dirname, 'css')));
@@ -21,8 +21,8 @@ app.get('/image/actmax_logo.png', (req, res) => {
 });
 app.use(express.json());
 app.use(authRouter);
-const requireAdmin = requireRoles(['ADMIN']);
-const requireWorkflowOperator = requireRoles(['OPERATOR', 'ADMIN']);
+const requireAdmin = requirePageAccess('download');
+const requireWorkflowOperator = requirePageAccess('standard');
 app.get('/app-shell.js', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.type('application/javascript').sendFile(path.join(__dirname, 'views', 'appShell.js'));
