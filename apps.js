@@ -35,7 +35,7 @@ const arnTraceabilityRoutes = require('./routes/arnTraceability');
 app.use('/arn', requireWorkflowOperator, arnTraceabilityRoutes);
 const printerSetupRoutes = require('./routes/printerSetup');
 app.use(printerSetupRoutes);
-// Read-only management history for ARN cartons and their saved product-label scans.
+// Read-only management history for ARN cartons and Standard product labels.
 const managementDashboardRoutes = require('./routes/managementDashboard');
 app.use(managementDashboardRoutes);
 

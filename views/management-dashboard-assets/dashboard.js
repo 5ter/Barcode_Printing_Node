@@ -12,8 +12,10 @@
   const exportCsvButton = document.getElementById('export-csv-button');
   const previousButton = document.getElementById('previous-page');
   const nextButton = document.getElementById('next-page');
+  const tabButtons = [...document.querySelectorAll('[data-dashboard-tab]')];
 
   let activeFilters;
+  let activeType = 'ARN';
   let requestNumber = 0;
   let noticeTimer;
 
@@ -97,12 +99,31 @@
     return `<span class="status-tag status-${escapeHtml(normalized)}">${escapeHtml(value || 'UNKNOWN')}</span>`;
   }
 
-  function renderSummary(summary) {
-    document.getElementById('stat-cartons').textContent = number(summary.cartonLabels);
-    document.getElementById('stat-cartons-sent').textContent = number(summary.cartonLabelsSent);
-    document.getElementById('stat-pending').textContent = number(summary.cartonPrintPending);
-    document.getElementById('stat-scans').textContent = number(summary.arnUnitScans);
-    document.getElementById('stat-failed').textContent = number(summary.cartonPrintFailures);
+  function renderSummary(summary, type) {
+    const cards = [...document.querySelectorAll('.stat-card')];
+    const setCard = (index, label, value, note, icon, alert = false) => {
+      const card = cards[index];
+      const labelElement = card.querySelector('.stat-label');
+      labelElement.firstChild.textContent = label + ' ';
+      const iconElement = labelElement.querySelector('span');
+      if (iconElement) iconElement.textContent = icon;
+      card.querySelector('.stat-value').textContent = number(value);
+      card.querySelector('.stat-note').textContent = note;
+      card.classList.toggle('stat-alert', alert);
+    };
+
+    if (type === 'STANDARD') {
+      setCard(0, 'STANDARD PRODUCT LABELS', summary.standardLabels, 'Successfully printed label records matching these filters', '▤');
+      setCard(1, 'WORK ORDERS', summary.standardWorkOrders, 'Distinct MO references in the filtered records', '▣');
+      setCard(2, 'PRODUCT CONFIGURATIONS', summary.standardProducts, 'Distinct Actmax part numbers in the filtered records', '⌗');
+      setCard(3, 'PRINTERS USED', summary.standardPrinters, 'Printers represented in the filtered records', '!', false);
+      return;
+    }
+
+    setCard(0, 'ARN CARTON LABEL JOBS', summary.cartonLabels, `${number(summary.cartonLabelsSent)} sent successfully`, '▣');
+    setCard(1, 'PENDING ARN PRINTS', summary.cartonPrintPending, 'Saved ARN labels not yet confirmed as sent', '▤');
+    setCard(2, 'ARN PRODUCT SCAN EVENTS', summary.arnUnitScans, 'Includes removed scans retained in the carton audit', '⌗');
+    setCard(3, 'FAILED ARN PRINTS', summary.cartonPrintFailures, 'Failed attempts remain visible for audit', '!', true);
   }
 
   function printerLabel(printer) {
@@ -174,10 +195,77 @@
     }).join('');
   }
 
+  function renderStandardProducts(rows) {
+    tableHead.innerHTML = `<tr>
+      <th>Product label</th><th>Work order</th><th>Product details</th>
+      <th>Serial</th><th>Print state</th><th>Printer / printed</th>
+    </tr>`;
+    if (!rows.length) {
+      tableBody.innerHTML = '<tr><td class="empty-state" colspan="6">No Standard product-label records match these filters.</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = rows.map(row => {
+      const showStandardField = value => isProductLabelSearchMatch(value)
+        ? escapeAndHighlightSearch(value)
+        : escapeHtml(value || '—');
+      return `<tr class="data-row standard-row">
+      <td class="reference-cell"><span class="reference-content"><span class="row-kicker">STANDARD LABEL</span><span class="reference-code">${showStandardField(row.labelContent)}</span><span class="minor">Record #${escapeHtml(row.recordId)}</span></span></td>
+      <td class="job-cell"><div class="job-line"><span>MO</span><span class="code">${showStandardField(row.mo)}</span></div><div class="job-line"><span>GROUP</span><span class="code">${showStandardField(row.productCodeGroup)}</span></div></td>
+      <td class="job-cell"><div class="job-line"><span>NAME</span><span class="code">${showStandardField(row.productName)}</span></div><div class="job-line"><span>ACT</span><span class="code">${showStandardField(row.actmaxPartNo)}</span></div><div class="job-line"><span>CUST</span><span class="code">${showStandardField(row.customerPartNo)}</span></div><div class="job-line"><span>CODE</span><span class="code">${showStandardField(row.productCode)}</span></div><div class="job-line"><span>MFG</span><span class="code">${showStandardField(row.manufacturingId)}</span></div></td>
+      <td><span class="quantity">${showStandardField(row.serialNo)}</span></td>
+      <td>${statusTag('PRINTED')}</td>
+      <td class="printer-cell"><span class="code">${showStandardField(row.printerId)}</span><div class="printed-at">${displayDate(row.printedAt)}</div></td>
+    </tr>`;
+    }).join('');
+  }
+
+  function updateTabPresentation(type) {
+    const isStandard = type === 'STANDARD';
+    for (const button of tabButtons) {
+      const selected = button.dataset.dashboardTab === type;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    }
+    const metricLabels = isStandard
+      ? ['STANDARD PRODUCT LABELS', 'WORK ORDERS', 'PRODUCT CONFIGURATIONS', 'PRINTERS USED']
+      : ['ARN CARTON LABEL JOBS', 'PENDING ARN PRINTS', 'ARN PRODUCT SCAN EVENTS', 'FAILED ARN PRINTS'];
+    [...document.querySelectorAll('.stat-card')].forEach((card, index) => {
+      const label = card.querySelector('.stat-label');
+      if (label.firstChild) label.firstChild.textContent = metricLabels[index] + ' ';
+      card.querySelector('.stat-value').textContent = '—';
+      card.querySelector('.stat-note').textContent = 'Loading filtered records…';
+      card.classList.toggle('stat-alert', !isStandard && index === 3);
+    });
+    document.getElementById('dashboard-results').setAttribute('aria-labelledby', isStandard ? 'standard-tab' : 'arn-tab');
+    document.getElementById('dashboard-title').textContent = isStandard ? 'Standard Label Traceability' : 'ARN Carton Traceability & Audit';
+    document.getElementById('dashboard-description').textContent = isStandard
+      ? 'Review individual Standard product labels, MO references, product configuration, serial numbers, and print destinations.'
+      : 'Review ARN carton labels and the raw product-label contents saved in every carton.';
+    exportExcelButton.title = isStandard
+      ? 'Exports the filtered Standard product-label records'
+      : 'Exports ARN cartons and their product-label scans in separate sheets';
+    document.getElementById('results-title').textContent = isStandard ? 'Standard product label records' : 'ARN carton label records';
+    document.getElementById('data-note').textContent = isStandard
+      ? 'Each row is one Standard product label saved after a successful print; a print request normally creates two serial-label records.'
+      : 'Click any ARN carton row to view its raw product-label scans; removed scans remain visible and are marked as removed.';
+    document.querySelector('#part-filter').parentElement.querySelector('span').textContent = isStandard ? 'Customer or Actmax part' : 'Part number';
+    document.querySelector('#part-filter').placeholder = isStandard ? 'Customer or Actmax part' : 'ARN or manufacturer part';
+    document.querySelector('#search-filter').parentElement.querySelector('span').textContent = isStandard ? 'Product label or job text' : 'Carton or product-label text';
+    document.querySelector('#search-filter').placeholder = isStandard
+      ? 'Search label content, MO, part, product, printer…'
+      : 'Search Mfr Ref No., raw product label, PO, printer…';
+    document.getElementById('filter-help').textContent = isStandard
+      ? 'The same date, MO, part, printer, and text filters are applied to Standard product-label records.'
+      : 'Search includes raw product-label scans and returns their carton information. Carton labels are filtered by ARN print time.';
+  }
+
   function renderPagination(pagination) {
     const start = pagination.total ? ((pagination.page - 1) * pagination.pageSize) + 1 : 0;
     const end = Math.min(pagination.page * pagination.pageSize, pagination.total);
-    document.getElementById('result-range').textContent = `Showing ${number(start)}–${number(end)} of ${number(pagination.total)} carton labels`;
+    const recordName = activeType === 'STANDARD' ? 'product labels' : 'carton labels';
+    document.getElementById('result-range').textContent = `Showing ${number(start)}–${number(end)} of ${number(pagination.total)} ${recordName}`;
     document.getElementById('page-label').textContent = `Page ${number(pagination.page)} of ${number(Math.max(1, pagination.totalPages))}`;
     previousButton.disabled = pagination.page <= 1;
     nextButton.disabled = pagination.page >= pagination.totalPages;
@@ -193,8 +281,9 @@
       if (!response.ok) throw new Error(result.message || 'Could not load the dashboard.');
       if (currentRequest !== requestNumber) return;
 
-      renderSummary(result.summary);
-      renderCartons(result.rows);
+      renderSummary(result.summary, activeType);
+      if (activeType === 'STANDARD') renderStandardProducts(result.rows);
+      else renderCartons(result.rows);
       renderPagination(result.pagination);
       document.getElementById('last-updated').textContent = `Updated ${new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())}`;
     } catch (error) {
@@ -202,6 +291,8 @@
       tableHead.innerHTML = '';
       tableBody.innerHTML = `<tr><td class="empty-state" colspan="6">${escapeHtml(error.message)}</td></tr>`;
       document.getElementById('result-range').textContent = 'Unable to load records';
+      document.querySelectorAll('.stat-card .stat-value').forEach(value => { value.textContent = '—'; });
+      document.querySelectorAll('.stat-card .stat-note').forEach(note => { note.textContent = 'Unavailable for the current filters'; });
       showNotice(error.message);
     } finally {
       if (currentRequest === requestNumber) setLoading(false);
@@ -277,10 +368,33 @@
       part: document.getElementById('part-filter').value.trim(),
       printer: printerInput.value,
       search: document.getElementById('search-filter').value.trim(),
+      type: activeType,
       page: 1,
       pageSize: Number(pageSizeInput.value)
     };
   }
+
+  function switchTab(type) {
+    if (type === activeType || !['ARN', 'STANDARD'].includes(type)) return;
+    if (!form.reportValidity()) return;
+    activeType = type;
+    activeFilters = collectFormFilters();
+    updateTabPresentation(activeType);
+    loadDashboard();
+  }
+
+  tabButtons.forEach((button, index) => {
+    button.addEventListener('click', () => switchTab(button.dataset.dashboardTab));
+    button.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const nextIndex = event.key === 'Home' ? 0
+        : event.key === 'End' ? tabButtons.length - 1
+          : (index + (event.key === 'ArrowRight' ? 1 : tabButtons.length - 1)) % tabButtons.length;
+      tabButtons[nextIndex].focus();
+      switchTab(tabButtons[nextIndex].dataset.dashboardTab);
+    });
+  });
 
   form.addEventListener('submit', event => {
     event.preventDefault();
@@ -327,7 +441,7 @@
     const params = queryString(activeFilters);
     params.set('format', format);
     window.location.assign(`/api/management-dashboard/export?${params}`);
-    showNotice('Export started for all filtered ARN carton labels.', true);
+    showNotice('Export started for all filtered ' + (activeType === 'STANDARD' ? 'Standard product labels.' : 'ARN carton labels.'), true);
   }
   exportExcelButton.addEventListener('click', () => exportRecords('xlsx'));
   exportCsvButton.addEventListener('click', () => exportRecords('csv'));
@@ -352,10 +466,12 @@
   startInput.value = localDate(thirtyDaysAgo);
   endInput.value = localDate(today);
   activeFilters = {
+    type: activeType,
     startDate: startInput.value,
     endDate: endInput.value,
     mo: '', part: '', printer: '', search: '',
     page: 1, pageSize: Number(pageSizeInput.value)
   };
+  updateTabPresentation(activeType);
   loadPrinterOptions().finally(loadDashboard);
 })();

@@ -20,8 +20,8 @@
       <div class="heading-row">
         <div>
           <p class="eyebrow">MANAGEMENT REPORTING</p>
-          <h1>Carton Traceability &amp; Label Audit</h1>
-          <p class="subheading">Review ARN carton labels and the raw product-label contents saved in every carton.</p>
+          <h1 id="dashboard-title">Label Traceability &amp; Audit</h1>
+          <p class="subheading" id="dashboard-description">Review ARN carton labels and the raw product-label contents saved in every carton.</p>
         </div>
         <div class="heading-actions">
           <span class="updated" id="last-updated">Not loaded yet</span>
@@ -33,11 +33,16 @@
     </section>
 
     <section class="content-wrap">
+      <div class="dashboard-tabs" role="tablist" aria-label="Label history type">
+        <button class="dashboard-tab is-active" id="arn-tab" type="button" role="tab" aria-selected="true" aria-controls="dashboard-results" data-dashboard-tab="ARN">ARN Labels</button>
+        <button class="dashboard-tab" id="standard-tab" type="button" role="tab" aria-selected="false" aria-controls="dashboard-results" data-dashboard-tab="STANDARD" tabindex="-1">Standard Labels</button>
+      </div>
+
       <div class="stats-grid" aria-label="Matching record totals">
         <article class="stat-card">
           <div class="stat-label">ARN CARTON LABEL JOBS <span aria-hidden="true">▣</span></div>
           <div class="stat-value" id="stat-cartons">—</div>
-          <div class="stat-note"><span id="stat-cartons-sent">—</span> sent successfully</div>
+          <div class="stat-note">sent successfully</div>
         </article>
         <article class="stat-card">
           <div class="stat-label">PENDING ARN PRINTS <span aria-hidden="true">▤</span></div>
@@ -94,13 +99,13 @@
             </label>
           </div>
           <div class="filter-footer">
-            <p class="filter-help">Search includes raw product-label scans and returns their carton information. Carton labels are filtered by ARN print time.</p>
+            <p class="filter-help" id="filter-help">Search includes raw product-label scans and returns their carton information. Carton labels are filtered by ARN print time.</p>
             <button class="button apply-button" type="submit">⌕ <span>Apply filters</span></button>
           </div>
         </form>
       </section>
 
-      <section class="results-card" aria-labelledby="results-title">
+      <section class="results-card" id="dashboard-results" role="tabpanel" aria-labelledby="arn-tab">
         <div class="results-toolbar">
           <div>
             <p class="eyebrow">AUDIT RESULTS</p>
@@ -129,7 +134,7 @@
           </div>
         </div>
       </section>
-      <p class="data-note">This dashboard currently shows ARN carton labels only. Click any carton row to view its raw product-label scans; removed scans remain visible and are marked as removed.</p>
+      <p class="data-note" id="data-note">Click any ARN carton row to view its raw product-label scans; removed scans remain visible and are marked as removed.</p>
       <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
     </section>
   </main>

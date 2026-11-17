@@ -63,6 +63,11 @@ h1 { margin-bottom: 6px; color: #fffaff; font-size: clamp(24px, 2.2vw, 31px); li
 .apply-button:hover { background: #502b70; }
 
 .content-wrap { max-width: 1600px; margin: 0 auto; padding: 24px 30px 38px; }
+.dashboard-tabs { display: flex; gap: 7px; margin: 0 0 18px; padding: 5px; width: fit-content; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #19131f; }
+.dashboard-tab { min-height: 38px; padding: 8px 17px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #c4b5d2; font-weight: 700; transition: color .15s ease, background .15s ease, border-color .15s ease; }
+.dashboard-tab:hover { color: #fff; background: #2b2035; }
+.dashboard-tab.is-active { border-color: #7951a0; background: var(--purple-deep); color: #fff; box-shadow: 0 4px 12px #7c3aed38; }
+.dashboard-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
 .stat-card, .filter-card, .results-card { background: var(--surface); border: 1px solid var(--line-subtle); border-radius: 9px; box-shadow: 0 13px 30px #0000001c; }
 .stat-card { position: relative; min-height: 127px; overflow: hidden; padding: 18px 19px 15px; }
@@ -180,6 +185,8 @@ tbody tr.carton-row[data-carton-id]:focus { position: relative; z-index: 1; outl
   .heading-actions { width: 100%; justify-content: flex-start; }
   .updated { width: auto; margin-right: auto; text-align: left; }
   .content-wrap { padding: 16px 12px 28px; }
+  .dashboard-tabs { width: 100%; }
+  .dashboard-tab { flex: 1; padding-inline: 8px; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .stat-card { min-height: 112px; padding: 14px; }
   .stat-label { font-size: 9px; }

@@ -42,6 +42,11 @@ function readFilters(query) {
         return { error: 'Choose a valid printer.' };
     }
 
+    const type = String(query.type || 'ARN').trim().toUpperCase();
+    if (!['ARN', 'STANDARD'].includes(type)) {
+        return { error: 'Choose ARN or Standard label records.' };
+    }
+
     const pageValue = Number.parseInt(query.page, 10);
     const pageSizeValue = Number.parseInt(query.pageSize, 10);
     const pageSize = [25, 50, 100].includes(pageSizeValue) ? pageSizeValue : 25;
@@ -49,6 +54,7 @@ function readFilters(query) {
 
     return {
         filters: {
+            type,
             startDate,
             endDate,
             mo: String(query.mo || '').trim().slice(0, 100),
@@ -129,6 +135,44 @@ function makeArnScanFilter(filters) {
         'c.purchase_order', 'c.printer_id', 'h.label_content', 'CAST(c.id AS CHAR)'
     ], filters.search);
     return { sql: ' WHERE ' + where.join(' AND '), parameters };
+}
+
+function makeStandardFilter(filters) {
+    const where = [];
+    const parameters = [];
+    addDateFilter(where, parameters, 'p.`date`', filters);
+    addExactContainsFilter(where, parameters, 'p.mo', filters.mo);
+    addAnyContainsFilter(where, parameters, ['p.Act_part_no', 'p.Cust_part_no'], filters.part);
+    addExactContainsFilter(where, parameters, 'p.printer_ID', filters.printer);
+    addAnyContainsFilter(where, parameters, [
+        'p.Label_content', 'p.mo', 'p.Cust_part_no', 'p.Act_part_no',
+        'p.product_code_group', 'CAST(p.Unique_serial AS CHAR)', 'p.printer_ID',
+        'r.Product_name', 'r.Product_code', 'r.Manufacturing_ID', 'r.Customer_ID'
+    ], filters.search);
+    return { sql: where.length ? ' WHERE ' + where.join(' AND ') : '', parameters };
+}
+
+function standardLabelSelect(filter, withPagination) {
+    return {
+        sql: `SELECT
+                p.id AS recordId,
+                p.Label_content AS labelContent,
+                p.mo AS mo,
+                p.Cust_part_no AS customerPartNo,
+                p.Act_part_no AS actmaxPartNo,
+                p.product_code_group AS productCodeGroup,
+                p.Unique_serial AS serialNo,
+                p.printer_ID AS printerId,
+                p.date AS printedAt,
+                r.Product_name AS productName,
+                r.Product_code AS productCode,
+                r.Manufacturing_ID AS manufacturingId,
+                r.Customer_ID AS configuredCustomerId
+            FROM products_unique p
+            LEFT JOIN product_code_ref r ON r.Actmax_ID = p.Act_part_no${filter.sql}
+            ORDER BY p.date DESC, p.id DESC${withPagination ? ' LIMIT ? OFFSET ?' : ''}`,
+        parameters: filter.parameters
+    };
 }
 
 function cartonSelect(filter, withPagination) {
@@ -215,9 +259,11 @@ router.get('/api/management-dashboard/printers', dashboardAccess, async (req, re
             location: printer.location || ''
         }]));
         const [historyRows] = await connection.execute(
-            'SELECT DISTINCT printer_id FROM arn_label_print_history ' +
-            'WHERE printer_id IS NOT NULL AND TRIM(printer_id) <> ? ORDER BY printer_id',
-            ['']
+            'SELECT printer_id FROM arn_label_print_history ' +
+            'WHERE printer_id IS NOT NULL AND TRIM(printer_id) <> ? ' +
+            'UNION SELECT printer_ID AS printer_id FROM products_unique ' +
+            'WHERE printer_ID IS NOT NULL AND TRIM(printer_ID) <> ? ORDER BY printer_id',
+            ['', '']
         );
         for (const row of historyRows) {
             const id = normalizePrinterId(row.printer_id);
@@ -275,6 +321,45 @@ router.get('/api/management-dashboard', dashboardAccess, async (req, res) => {
 
     try {
         connection = await db.getConnection();
+        if (filters.type === 'STANDARD') {
+            const standardFilter = makeStandardFilter(filters);
+            const [countRows] = await connection.execute(
+                `SELECT COUNT(*) AS total,
+                        COUNT(DISTINCT p.mo) AS workOrders,
+                        COUNT(DISTINCT p.Act_part_no) AS products,
+                        COUNT(DISTINCT p.printer_ID) AS printers
+                 FROM products_unique p
+                 LEFT JOIN product_code_ref r ON r.Actmax_ID = p.Act_part_no${standardFilter.sql}`,
+                standardFilter.parameters
+            );
+            const counts = countRows[0] || {};
+            const summary = {
+                standardLabels: Number(counts.total || 0),
+                standardWorkOrders: Number(counts.workOrders || 0),
+                standardProducts: Number(counts.products || 0),
+                standardPrinters: Number(counts.printers || 0)
+            };
+            const offset = (filters.page - 1) * filters.pageSize;
+            const query = standardLabelSelect(standardFilter, true);
+            const [rows] = await connection.execute(
+                query.sql,
+                [...query.parameters, ...paginationParameters(filters.pageSize, offset)]
+            );
+            const total = summary.standardLabels;
+            return res.json({
+                status: 'success',
+                filters,
+                summary,
+                rows,
+                pagination: {
+                    page: filters.page,
+                    pageSize: filters.pageSize,
+                    total,
+                    totalPages: Math.ceil(total / filters.pageSize)
+                }
+            });
+        }
+
         const summary = await readCounts(connection, cartonFilter, arnScanFilter);
         const offset = (filters.page - 1) * filters.pageSize;
         const total = summary.cartonLabels;
@@ -300,7 +385,7 @@ router.get('/api/management-dashboard', dashboardAccess, async (req, res) => {
         console.error('Management dashboard query failed:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'Could not load the label audit records. Check the database connection and required ARN carton tables.'
+            message: 'Could not load the label audit records. Check the database connection and required label tables.'
         });
     } finally {
         if (connection) connection.release();
@@ -425,6 +510,51 @@ router.get('/api/management-dashboard/export', dashboardAccess, async (req, res)
 
     try {
         connection = await db.getConnection();
+        if (filters.type === 'STANDARD') {
+            const standardFilter = makeStandardFilter(filters);
+            const standardViewName = 'standard-product-labels';
+            const standardColumns = [
+                ['Record ID', 'recordId'], ['Product Label Content', 'labelContent'],
+                ['MO', 'mo'], ['Customer Part No.', 'customerPartNo'],
+                ['Actmax Part No.', 'actmaxPartNo'], ['Product Name', 'productName'],
+                ['Product Code', 'productCode'], ['Manufacturing ID', 'manufacturingId'],
+                ['Product Code Group', 'productCodeGroup'], ['Serial No.', 'serialNo'],
+                ['Printer', 'printerId'], ['Printed At', 'printedAt']
+            ];
+            res.status(200);
+
+            if (format === 'xlsx') {
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                res.setHeader('Content-Disposition', `attachment; filename="label_${standardViewName}_${dateTag}.xlsx"`);
+                const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+                    stream: res,
+                    useStyles: true,
+                    useSharedStrings: false
+                });
+                const worksheet = workbook.addWorksheet('Standard product labels');
+                configureExcelWorksheet(worksheet, standardColumns);
+                const query = standardLabelSelect(standardFilter);
+                await streamQueryAsExcel(
+                    connection, query.sql, query.parameters,
+                    standardColumns.map(([, key]) => key), worksheet, res
+                );
+                await workbook.commit();
+                return;
+            }
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="label_${standardViewName}_${dateTag}.csv"`);
+            res.write('\uFEFF');
+            res.write(csvRow(standardColumns.map(([header]) => header)));
+            const query = standardLabelSelect(standardFilter);
+            await streamQueryAsCsv(
+                connection, query.sql, query.parameters,
+                standardColumns.map(([, key]) => key), res
+            );
+            if (!res.destroyed) res.end();
+            return;
+        }
+
         const viewName = 'arn-cartons';
         res.status(200);
         const excelColumns = [
