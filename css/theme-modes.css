@@ -279,6 +279,7 @@ html[data-color-mode="light"] .message { background: #eef5ff; border-color: #b8c
 html[data-color-mode="light"] .arn-badge { background: #e7f6ee; color: #17634a; }
 html[data-color-mode="light"] .arn-status-open,
 html[data-color-mode="light"] .arn-status-printing { background: #e7f0ff; border-color: #b8cbe4; color: #164fbd; }
+html[data-color-mode="light"] .arn-status-abandoned { background: #f2f4f8; border-color: #d7e1ed; color: #596579; }
 html[data-color-mode="light"] .arn-status-unknown { background: #f8fafd; border-color: #d7e1ed; color: #607087; }
 html[data-color-mode="light"] .arn-progress-track { background: #e5edf5; }
 html[data-color-mode="light"] .arn-progress-bar { background: #164fbd; }

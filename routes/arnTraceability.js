@@ -258,7 +258,12 @@ router.get('/api/recent-cartons', async (req, res) => {
             'c.created_at, c.sealed_at, c.label_history_id, ' +
             'h.id AS print_history_id, h.label_content AS label_reference, h.quantity AS printed_quantity, ' +
             'h.print_status, h.retry_count, h.last_retry_at, h.last_error, ' +
-            'CASE WHEN h.label_payload IS NULL OR h.label_payload = \'\' THEN 0 ELSE 1 END AS has_saved_payload ' +
+            'CASE WHEN h.label_payload IS NULL OR h.label_payload = \'\' THEN 0 ELSE 1 END AS has_saved_payload, ' +
+            'CASE WHEN c.status = \'OPEN\' AND c.scanned_count = 0 AND c.label_history_id IS NULL ' +
+            'AND NOT EXISTS (SELECT 1 FROM arn_carton_scans s WHERE s.carton_id = c.id) ' +
+            'AND NOT EXISTS (SELECT 1 FROM arn_label_print_history p WHERE p.carton_id = c.id) ' +
+            'AND NOT EXISTS (SELECT 1 FROM arn_station_lock l WHERE l.printer_id = c.printer_id ' +
+            'AND l.current_carton_id = c.id AND l.mo IS NOT NULL) THEN 1 ELSE 0 END AS can_abandon ' +
             'FROM arn_cartons c ' +
             'LEFT JOIN arn_label_print_history h ON h.id = c.label_history_id ' +
             'WHERE c.printer_id = ? ' +
@@ -282,12 +287,94 @@ router.get('/api/recent-cartons', async (req, res) => {
             retryCount: safeCount(row.retry_count),
             lastRetryAt: row.last_retry_at || null,
             lastError: row.last_error || null,
-            canReprint: row.status === 'SEALED' && Boolean(row.print_history_id) && Number(row.has_saved_payload) === 1
+            canReprint: row.status === 'SEALED' && Boolean(row.print_history_id) && Number(row.has_saved_payload) === 1,
+            canAbandon: Number(row.can_abandon) === 1
         }));
         return res.json({ status: 'success', cartons });
     } catch (error) {
         logger.error('Could not load recent ARN cartons:', error);
         return res.status(500).json({ status: 'error', message: 'Could not load recent cartons for this ARN station.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+router.post('/api/cartons/:cartonId/abandon', async (req, res) => {
+    const printerId = await getArnWorkflowPrinter(res);
+    if (!printerId) return;
+    const cartonId = String(req.params.cartonId || '').trim();
+    if (!/^[1-9][0-9]*$/.test(cartonId)) {
+        return res.status(400).json({ status: 'error', message: 'A valid carton ID is required.' });
+    }
+
+    let connection;
+    let transactionOpen = false;
+    try {
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+        transactionOpen = true;
+
+        // Lock in the same station-then-carton order used by scan and unlock,
+        // so an operator cannot abandon a carton while it is being scanned.
+        const [lockRows] = await connection.execute(
+            'SELECT current_carton_id, mo FROM arn_station_lock WHERE printer_id = ? FOR UPDATE',
+            [printerId]
+        );
+        const [cartonRows] = await connection.execute(
+            'SELECT id, printer_id, status, scanned_count, label_history_id FROM arn_cartons WHERE id = ? FOR UPDATE',
+            [cartonId]
+        );
+        if (!cartonRows.length || cartonRows[0].printer_id !== printerId) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(404).json({ status: 'error', message: 'That carton was not found at this ARN station.' });
+        }
+
+        const carton = cartonRows[0];
+        const isActiveCarton = lockRows.length && lockRows[0].mo &&
+            String(lockRows[0].current_carton_id) === cartonId;
+        if (isActiveCarton) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'Unlock the active ARN job before abandoning its empty carton.' });
+        }
+        if (carton.status !== 'OPEN' || safeCount(carton.scanned_count) !== 0 || carton.label_history_id) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'Only an empty OPEN carton with no print history can be abandoned.' });
+        }
+
+        const [scanRows] = await connection.execute(
+            'SELECT COUNT(*) AS scan_count FROM arn_carton_scans WHERE carton_id = ?',
+            [cartonId]
+        );
+        if (safeCount(scanRows[0] && scanRows[0].scan_count) > 0) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'This carton has scan history and cannot be abandoned.' });
+        }
+
+        const [historyRows] = await connection.execute(
+            'SELECT COUNT(*) AS history_count FROM arn_label_print_history WHERE carton_id = ?',
+            [cartonId]
+        );
+        if (safeCount(historyRows[0] && historyRows[0].history_count) > 0) {
+            await connection.rollback();
+            transactionOpen = false;
+            return res.status(409).json({ status: 'error', message: 'This carton has print history and cannot be abandoned.' });
+        }
+
+        await connection.execute(
+            'UPDATE arn_cartons SET status = ? WHERE id = ?',
+            ['ABANDONED', cartonId]
+        );
+        await connection.commit();
+        transactionOpen = false;
+        return res.json({ status: 'success', cartonId, cartonStatus: 'ABANDONED' });
+    } catch (error) {
+        if (connection && transactionOpen) await connection.rollback();
+        logger.error('Could not abandon empty ARN carton:', error);
+        return res.status(500).json({ status: 'error', message: 'Could not change this carton status: ' + error.message });
     } finally {
         if (connection) connection.release();
     }

@@ -29,6 +29,24 @@ async function request(baseUrl, pathName, body) {
     return payload;
 }
 
+async function postExpectingError(baseUrl, pathName, body, expectedStatus) {
+    const response = await fetch(baseUrl + pathName, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+    });
+    const payload = await response.json();
+    assert.equal(response.status, expectedStatus, payload.message);
+    return payload;
+}
+
+async function getJson(baseUrl, pathName) {
+    const response = await fetch(baseUrl + pathName);
+    const payload = await response.json();
+    assert.equal(response.ok, true, payload.message);
+    return payload;
+}
+
 async function main() {
     const connection = await db.getConnection();
     await connection.execute(
@@ -60,13 +78,43 @@ async function main() {
         assert.equal(removalResult.state.carton.scanned_count, 1);
         assert.equal(removalResult.state.scans.length, 1);
 
+        const activeCartonId = String(removalResult.state.carton.id);
+        const recentWhileActive = await getJson(baseUrl, '/arn/api/recent-cartons');
+        assert.equal(recentWhileActive.cartons.find(carton => carton.id === activeCartonId).canAbandon, false);
+        await postExpectingError(baseUrl, '/arn/api/cartons/' + activeCartonId + '/abandon', {}, 409);
+
         const [historyRows] = await connection.execute('SELECT COUNT(*) AS count FROM arn_label_print_history');
         assert.equal(historyRows[0].count, 0, 'capacity review must not allocate or print an ARN label');
 
         const completed = await request(baseUrl, '/arn/api/carton/complete');
         assert.equal(completed.state.carton.status, 'SEALED');
         assert.equal(completed.state.printHistory.quantity, 1);
-        console.log('PASS: capacity review keeps the carton editable and prints only after Complete & Seal.');
+
+        const [emptyInsert] = await connection.execute(
+            'INSERT INTO arn_cartons (printer_id, mo, manufacturer_part_no, arn_part_no, purchase_order, box_capacity, scanned_count, status) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
+            ['PRINTER_D', 'MO-EMPTY', 'MPN-EMPTY', 'ARN-EMPTY', 'PO-EMPTY', 2, 'OPEN']
+        );
+        const [scannedInsert] = await connection.execute(
+            'INSERT INTO arn_cartons (printer_id, mo, manufacturer_part_no, arn_part_no, purchase_order, box_capacity, scanned_count, status) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
+            ['PRINTER_D', 'MO-SCANNED', 'MPN-SCANNED', 'ARN-SCANNED', 'PO-SCANNED', 2, 'OPEN']
+        );
+        await connection.execute(
+            'INSERT INTO arn_carton_scans (carton_id, scanned_content, removed_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+            [String(scannedInsert.insertId), 'PRODUCT-WAS-SCANNED']
+        );
+
+        const emptyCartonId = String(emptyInsert.insertId);
+        const scannedCartonId = String(scannedInsert.insertId);
+        const recentBeforeAbandon = await getJson(baseUrl, '/arn/api/recent-cartons');
+        assert.equal(recentBeforeAbandon.cartons.find(carton => carton.id === emptyCartonId).canAbandon, true);
+        assert.equal(recentBeforeAbandon.cartons.find(carton => carton.id === scannedCartonId).canAbandon, false);
+
+        const abandoned = await request(baseUrl, '/arn/api/cartons/' + emptyCartonId + '/abandon', {});
+        assert.equal(abandoned.cartonStatus, 'ABANDONED');
+        const [abandonedRows] = await connection.execute('SELECT status FROM arn_cartons WHERE id = ?', [emptyCartonId]);
+        assert.equal(abandonedRows[0].status, 'ABANDONED');
+        await postExpectingError(baseUrl, '/arn/api/cartons/' + scannedCartonId + '/abandon', {}, 409);
+        console.log('PASS: capacity review, safe abandonment of empty cartons, and protection of active/scanned cartons.');
     } finally {
         await new Promise(resolve => server.close(resolve));
     }

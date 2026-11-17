@@ -194,6 +194,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                     actionCell.appendChild(reprint);
+                } else if (carton.canAbandon) {
+                    const abandon = document.createElement('button');
+                    abandon.type = 'button';
+                    abandon.className = 'arn-button arn-button-danger arn-table-button';
+                    abandon.textContent = 'Abandon';
+                    abandon.title = 'Mark this empty carton as abandoned without deleting its record';
+                    abandon.addEventListener('click', async () => {
+                        if (!window.confirm('Mark empty Carton #' + carton.id + ' as ABANDONED? Its record will be kept, and no label will be printed.')) return;
+                        abandon.disabled = true;
+                        try {
+                            await api('/arn/api/cartons/' + encodeURIComponent(carton.id) + '/abandon', 'POST', {});
+                            displayAlert(alert, 'Carton #' + carton.id + ' marked as abandoned. Its traceability record was kept.', 'success');
+                            await loadRecentCartons();
+                        } catch (error) {
+                            displayAlert(alert, error.message, 'error');
+                            abandon.disabled = false;
+                        }
+                    });
+                    actionCell.appendChild(abandon);
                 } else if (stationState && stationState.carton && String(stationState.carton.id) === String(carton.id) && carton.status !== 'SEALED') {
                     const resume = document.createElement('a');
                     resume.className = 'arn-button arn-button-primary arn-table-button';

@@ -91,6 +91,7 @@ button, input, select { font: inherit; }
 .arn-status-sealed { color:#17634a; background:var(--arn-green-soft); border-color:#b9ead6; }
 .arn-status-open, .arn-status-printing { color:#244b88; background:#eef5ff; border-color:#ccddfb; }
 .arn-status-print-failed { color:var(--arn-red); background:var(--arn-red-soft); border-color:#f3cbc7; }
+.arn-status-abandoned { color:#596579; background:#f2f4f8; border-color:#dce3ed; }
 .arn-status-unknown { color:#596579; background:#f2f4f8; border-color:#dce3ed; }
 .arn-table-button { min-height:32px; padding:6px 10px; font-size:11px; white-space:nowrap; }
 .arn-progress-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-weight:700; }
@@ -162,6 +163,7 @@ button, input, select { font: inherit; }
 .arn-table td { border-bottom-color: #3a3540; }
 .arn-table tbody tr:hover { background: #26222d; }
 .arn-status-open, .arn-status-printing { color: #b9f3ff; border-color: #286a7b; background: #102c33; }
+.arn-status-abandoned { color: #d4d4d8; border-color: #52525b; background: #27272a; }
 .arn-status-unknown { color: #cbd5e1; border-color: #4a4350; background: #29262e; }
 .arn-progress-track { background: #34303a; }
 .arn-progress-bar { background: var(--arn-accent); transition: width .45s cubic-bezier(.2, .8, .2, 1); }
